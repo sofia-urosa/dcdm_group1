@@ -1,3 +1,7 @@
+.Rhistory
+.RData
+.Rproj.user/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
@@ -143,6 +147,11 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+
+# RENV
+renv/library/
+renv/staging/
+
 
 # Spyder project settings
 .spyderproject
