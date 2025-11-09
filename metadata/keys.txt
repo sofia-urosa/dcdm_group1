@@ -1,0 +1,9 @@
+gene_accession_id
+gene_symbol
+mouse_strain
+mouse_life_stage
+parameter_id
+parameter_name
+pvalue
+analysis_id
+filename
