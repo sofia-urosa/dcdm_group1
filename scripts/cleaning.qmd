@@ -1,0 +1,268 @@
+```{r}
+#install.packages("stringdist")
+
+library(readr)    # read_delim / read_csv
+library(dplyr)    # filter, mutate, distinct, joins
+library(stringr)  # str_trim
+library(tidyr)
+library(stringdist)
+# -----------------------------------------
+# 1) IMPC Parameter Description
+# -----------------------------------------
+
+DATA_DIR <- ""
+
+params <- read.csv(file.path(DATA_DIR, "IMPC_parameter_description.txt"))
+nrow(params)
+
+procedure <- read.csv(file.path(DATA_DIR, "IMPC_procedure.txt"))
+nrow(procedure)
+
+disease_info <- read.csv(
+  file.path(DATA_DIR, "Disease_information.txt"),
+  sep = "\t", check.names = FALSE, stringsAsFactors = FALSE
+)
+nrow(disease_info)
+
+#data <- read.csv(file.path(DATA_DIR, "merged_all.csv"))
+#nrow(data)
+
+sop <- read.csv(file.path(DATA_DIR, "IMPC_SOP.csv"))
+nrow(sop)
+
+```
+
+
+```{r}
+
+valid_mouse_strains <- c("C57BL", "B6J", "C3H", "129SV")
+
+#-------------------------------#
+#        Misc + format          #
+#-------------------------------#
+
+
+#remove whitespaces and make sure there's only single spaces, not double
+trim_whitespace <- function(df) {
+  df %>% mutate(
+    across(
+      where(
+        is.character
+        ),
+      function(x) stringr::str_trim(x, side = "both")
+      )
+    ) %>% 
+    mutate(
+      across(
+        where(is.character), 
+        stringr::str_squish
+        )
+      )
+}
+
+#standardize n/a -> null
+std_na <- function(df) { 
+  df %>%
+    mutate(across(where(is.character), ~ {
+      x <- stringr::str_trim(.x)       # trim
+      x_lower <- tolower(x)            # normalize for comparison
+      
+      bad_vals <- c("", "na", "null")  # all invalid tokens
+      x[x_lower %in% bad_vals] <- NA   # convert to real NA
+      
+      x
+    }))
+}
+
+#coerce columns to be boolean
+coerce_bool <- function(df, cols) { 
+  df %>%
+    mutate(across(all_of(cols), ~ case_when(
+      tolower(as.character(.x)) %in% c("true","t","1","yes","y")  ~ TRUE,
+      tolower(as.character(.x)) %in% c("false","f","0","no","n") ~ FALSE,
+      TRUE ~ NA
+    )))
+}
+
+#correct misspellings by matching to the closest allowed value
+check_chr <- function(df, col, good, max_dist = 2) {
+
+  x <- df[[col]]
+  x_upper <- toupper(trimws(x))
+  good_upper <- toupper(trimws(good))
+
+  #match str
+  idx <- amatch(x_upper, good_upper, maxDist = max_dist)
+
+  #values with no match turn to NA
+  bad_raw   <- x[is.na(idx)]
+
+  #values that were corrected (matchable but not exact)
+  corrected <- x[!is.na(idx) & !(x_upper %in% good_upper)]
+
+  #correct
+  fixed <- ifelse(x_upper %in% good_upper, x, good[idx])
+
+  df[[col]] <- fixed
+
+  #make a qc table so we check those that didnt match at all
+  qc <- data.frame(
+    column = col,
+    original_value = c(bad_raw, corrected),
+    status = c(
+      rep("no_match → NA", length(bad_raw)),
+      rep("corrected", length(corrected))
+    ),
+    stringsAsFactors = FALSE
+  )
+
+  #return both
+  list(
+    data = df,
+    qc = qc
+  )
+}
+
+
+
+```
+
+```{r}
+sapply(params, class)
+sapply(procedure, class)
+sapply(data, class)
+```
+
+```{r}
+#Orthogonal files:
+#Rename columns (makes querying easier later...)
+
+rn_params <- params %>%
+  rename(
+    parameter_id = parameterId,
+    parameter_name = name,
+    parameter_description = description,
+    impc_parameter_orig_id = impcParameterOrigId
+  )
+
+rn_procedure <- procedure %>%
+  rename(
+    procedure_name = name,
+    procedure_description = description,
+    is_mandatory = isMandatory,
+    impc_parameter_orig_id = impcParameterOrigId
+  )
+
+rn_disease_info <- disease_info %>%
+  rename(
+    do_disease_id      = `DO Disease ID`,
+    do_disease_name    = `DO Disease Name`,
+    omim_id            = `OMIM IDs`,
+    gene_accession_id  = `Mouse MGI ID`
+  )
+
+#Cleaning
+
+c_params <- rn_params %>%
+  trim_whitespace() %>%
+  std_na() %>%
+  distinct(impc_parameter_orig_id, parameter_id, .keep_all = TRUE)
+
+c_procedure <- rn_procedure %>%
+  trim_whitespace() %>%
+  std_na() %>% coerce_bool("is_mandatory") %>%
+  distinct(procedure_name,procedure_description,is_mandatory,impc_parameter_orig_id, .keep_all = TRUE)
+
+c_disease_info <- rn_disease_info %>%
+  trim_whitespace() %>%
+  separate_rows("omim_id", sep = "\\|") %>% #OMIM separated by | will become two rows
+  std_na()  %>%
+  distinct(do_disease_id,do_disease_name,omim_id,gene_accession_id, .keep_all = TRUE)
+
+```
+
+```{r}
+#data
+#trim whitespaces, na format, unique rows, all gene_accession_id to lowercase to aid joining later
+c_data <- data %>%
+  trim_whitespace() %>%
+  std_na() %>%
+  distinct() %>% 
+  mutate(gene_accession_id = toupper(gene_accession_id))
+
+#filtering using the SOP:
+
+p_limits <- sop %>%
+  dplyr::filter(dataField == "pvalue") %>%
+  dplyr::select(minValue, maxValue)
+
+p_min <- p_limits$minValue
+p_max <- p_limits$maxValue
+
+#remove unvalid p values and compare the valid mouse strain vector to the values of c_data$mouse_strain
+sop_data <- c_data %>%
+  filter(pvalue >= p_min, pvalue <= p_max)
+
+result <- check_chr(sop_data, "mouse_strain", valid_mouse_strains, max_dist = 2)
+
+sop_data <- result$data
+qc_report <- result$qc
+
+```
+
+
+```{r}
+summary(sop_data)
+malformed_gene_id <- sop_data %>% 
+  filter(!str_detect(gene_accession_id, "^MGI:\\d+$"))
+print(malformed_gene_id)
+```
+
+
+
+```{r}
+inner_join(sop_data, c_disease_info, by = "gene_accession_id")
+```
+
+
+
+
+
+
+
+```{r}
+conflicts <- cleaned %>%
+  group_by(parameterId) %>%
+  filter(
+    n_distinct(impcParameterOrigId) > 1 &
+    n_distinct(name) > 1
+  ) %>%
+  arrange(parameterId, name) %>%
+  ungroup()
+
+params_unique <- cleaned %>%
+  group_by(parameterId) %>%
+  arrange(
+    desc(!is.na(description)),   # prefer rows with descriptions
+    desc(nchar(name)),           # prefer longer, more informative names
+    name                         # tie-breaker
+  ) %>%
+  slice(1) %>%                   # keep the best row
+  ungroup()
+
+
+cleaned %>%
+  count(parameterId) %>%
+  filter(n > 1)
+
+cleaned %>%
+  count(impcParameterOrigId) %>%
+  filter(n > 1)
+
+
+nrow(params_unique)
+```
+```{r}
+head(data)
+```
+
