@@ -110,7 +110,7 @@ check_chr <- function(df, col, good, max_dist = 2) {
     column = col,
     original_value = c(bad_raw, corrected),
     status = c(
-      rep("no_match → NA", length(bad_raw)),
+      rep("no_match, therefore NA", length(bad_raw)),
       rep("corrected", length(corrected))
     ),
     stringsAsFactors = FALSE
@@ -123,6 +123,119 @@ check_chr <- function(df, col, good, max_dist = 2) {
   )
 }
 
+validate_sop <- function(df_list,sop){
+  if (is.data.frame(df_list)) {
+    df_list <- list(df = df_list) #allow for a single df if needed
+  }
+  
+  cleaned_list <- list() #to put the clean data (checked using SOP limits)
+  qc <- list() #to put the QC 
+  
+  for (df_name in names(df_list)) {  #for each df...
+    
+    df <- df_list[[df_name]]
+    all_bad_rows <- c()
+    
+    missing_col <- setdiff(sop$dataField, names(df)) #it is normal that files do not contain all of SOP values. Itll just show a message.
+    
+    if (length(missing_col) > 0){
+      warning(paste(" ", df_name, "is missing these SOP fields:",paste(missing_col, collapse = ", ")))
+      
+      qc[[length(qc) + 1]] <- data.frame(
+        origin = df_name,
+        field = missing_col,
+        issue = "Column missing from data frame",
+        expected = "Column required by SOP",
+        value = NA,
+        stringsAsFactors = FALSE
+      )
+    }
+    
+    #we want to validate only confirmed pairs (therefore it is SUPER important that names are std BEFORE running this) - so columns in df to test MUST have at least one column called like an item of the SOP
+    common_fields <- intersect(sop$dataField, names(df))
+    sop_subset <- sop[sop$dataField %in% common_fields,]
+    
+    #now to validate those that match in both
+    for (i in 1:nrow(sop_subset)){
+      
+      field <- sop_subset$dataField[i]
+      dtype <- sop_subset$dataType[i]
+      minV  <- sop_subset$minValue[i]
+      maxV  <- sop_subset$maxValue[i]
+      
+      col <- df[[field]]
+      
+      #FIRST data type:
+      ## || is OR. so that means: sop says its string AND then it should be TRUE for is.character(column)
+      valid_type <- 
+        (dtype == "String"  && is.character(col)) ||
+        (dtype == "Float"   && is.numeric(col))   ||
+        (dtype == "Integer" && is.integer(col))
+      
+      #if its not valid... so if NOT evaluates to TRUE = INVALID, then add to QC
+      if (!valid_type) {
+        qc[[length(qc) + 1]] <- data.frame(
+          origin = df_name,
+          field = field,
+          issue = "Invalid data type",
+          expected = dtype,
+          value = paste("Actual:", class(col)[1]),
+          stringsAsFactors = FALSE
+        )
+        next
+      }
+      
+      #THEN length/range.
+      #for strings:
+      if (dtype == "String"){
+        len <- nchar(col)
+        bad_idx <- which(len < minV | len > maxV) #get me the index of those that dont meet the SOP criteria
+        
+        #log
+        if (length(bad_idx) > 0) {
+          all_bad_rows <- c(all_bad_rows, bad_idx)
+          qc[[length(qc) + 1]] <- data.frame(
+            origin = df_name,
+            field = field,
+            issue = "String length out of range",
+            value = col[bad_idx],
+            expected = paste(minV, "to", maxV),
+            stringsAsFactors = FALSE
+          )
+        }
+      }
+      
+      #same but for float:
+      if (dtype == "Float") {
+        bad_idx <- which(col < minV | col > maxV) 
+        
+        #log
+        if (length(bad_idx) > 0) {
+          all_bad_rows <- c(all_bad_rows, bad_idx)
+          qc[[length(qc) + 1]] <- data.frame(
+            origin = df_name,
+            field = field,
+            issue = "Numeric value out of range",
+            value = col[bad_idx],
+            expected = paste(minV, "to", maxV),
+            stringsAsFactors = FALSE
+          )
+        }
+      }
+    }
+    
+    bad_unique <- unique(all_bad_rows)
+    cleaned_df <- df[-bad_unique, ]
+    cleaned_list[[df_name]] <- cleaned_df
+  }
+  
+  #merge QC and sop-clean df
+  if (length(qc) == 0){
+    return(list(data = cleaned_list, qc = data.frame()))
+  } else {
+    return(list(data = cleaned_list, qc = do.call(rbind,qc)))
+  }
+}
 
 
 ```
@@ -192,21 +305,9 @@ c_data <- data %>%
 
 #filtering using the SOP:
 
-p_limits <- sop %>%
-  dplyr::filter(dataField == "pvalue") %>%
-  dplyr::select(minValue, maxValue)
-
-p_min <- p_limits$minValue
-p_max <- p_limits$maxValue
-
-#remove unvalid p values and compare the valid mouse strain vector to the values of c_data$mouse_strain
-sop_data <- c_data %>%
-  filter(pvalue >= p_min, pvalue <= p_max)
-
-result <- check_chr(sop_data, "mouse_strain", valid_mouse_strains, max_dist = 2)
-
-sop_data <- result$data
-qc_report <- result$qc
+result <- validate_sop(list(c_data = data), sop)
+qc <- result$qc 
+daaaaf <- result$data$c_data
 
 ```
 
@@ -226,6 +327,15 @@ inner_join(sop_data, c_disease_info, by = "gene_accession_id")
 
 
 
+```{r}
+distinct_mouse_strain<-distinct(data, mouse_strain)
+print(distinct_mouse_strain)
+
+
+p_limits <- get_limits(sop, "pvalue")
+p_min <- p_limits$min
+p_max <- p_limits$max
+```
 
 
 
