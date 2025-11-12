@@ -10,24 +10,30 @@ library(stringdist)
 # 1) IMPC Parameter Description
 # -----------------------------------------
 
-DATA_DIR <- ""
+DATA_DIR <- "/Users/sof/Documents/Msc/DCDM/cw1/dcdm_group1"
+OUTPUT_DIR <- "/Users/sof/Documents/Msc/DCDM/cw1/dcdm_group1/outputs" #to save data!
 
-params <- read.csv(file.path(DATA_DIR, "IMPC_parameter_description.txt"))
+#create the folder if it doesn't exist
+if (!dir.exists(OUTPUT_DIR)) {
+  dir.create(OUTPUT_DIR, recursive = TRUE)
+}
+
+params <- read.csv(file.path(DATA_DIR, "/metadata/IMPC_parameter_description.txt"))
 nrow(params)
 
-procedure <- read.csv(file.path(DATA_DIR, "IMPC_procedure.txt"))
+procedure <- read.csv(file.path(DATA_DIR, "/metadata/IMPC_procedure.txt"))
 nrow(procedure)
 
 disease_info <- read.csv(
-  file.path(DATA_DIR, "Disease_information.txt"),
+  file.path(DATA_DIR, "/metadata/Disease_information.txt"),
   sep = "\t", check.names = FALSE, stringsAsFactors = FALSE
 )
 nrow(disease_info)
 
-#data <- read.csv(file.path(DATA_DIR, "merged_all.csv"))
-#nrow(data)
+data <- read.csv(file.path(DATA_DIR, "/outputs/merged_all.csv"))
+nrow(data)
 
-sop <- read.csv(file.path(DATA_DIR, "IMPC_SOP.csv"))
+sop <- read.csv(file.path(DATA_DIR, "/metadata/IMPC_SOP.csv"))
 nrow(sop)
 
 ```
@@ -36,6 +42,7 @@ nrow(sop)
 ```{r}
 
 valid_mouse_strains <- c("C57BL", "B6J", "C3H", "129SV")
+valid_mouse_stages <- c("E12.5", "E15.5", "E18.5", "E9.5", "Early adult", "Late adult", "Middle aged adult")
 
 #-------------------------------#
 #        Misc + format          #
@@ -292,6 +299,7 @@ c_disease_info <- rn_disease_info %>%
   std_na()  %>%
   distinct(do_disease_id,do_disease_name,omim_id,gene_accession_id, .keep_all = TRUE)
 
+#now check for SOP comp
 ```
 
 ```{r}
@@ -301,20 +309,39 @@ c_data <- data %>%
   trim_whitespace() %>%
   std_na() %>%
   distinct() %>% 
-  mutate(gene_accession_id = toupper(gene_accession_id))
+  mutate(gene_accession_id = toupper(gene_accession_id)) %>%
+  mutate(mouse_life_stage = str_to_sentence(str_to_lower(mouse_life_stage)))
 
-#filtering using the SOP:
+qc_corrected_mouse_strain <- NULL
+qc_sop_compliant <- NULL
 
-result <- validate_sop(list(c_data = data), sop)
-qc <- result$qc 
-daaaaf <- result$data$c_data
+#now check for SOP comp
+sop_compliant_data <- c_data %>%
+  check_chr("mouse_strain", valid_mouse_strains, max_dist = 2) %>%
+  { 
+    qc_corrected_mouse_strain <<- .$qc                #store QC from check_chr
+    df <- .$data                                      #corrected data
+    result <- validate_sop(list(clean_data = df), sop)
+    qc_sop_compliant <<- result$qc                    #store QC from validate_sop
+    result$data$clean_data      #return
+  }
 
 ```
 
 
 ```{r}
-summary(sop_data)
-malformed_gene_id <- sop_data %>% 
+#save clean data to insert to sql
+write.csv(sop_compliant_data, file = file.path(OUTPUT_DIR, "clean_data.csv"), row.names = FALSE)
+write.csv(c_disease_info, file = file.path(OUTPUT_DIR, "clean_disease_info.csv"), row.names = FALSE)
+write.csv(c_params, file = file.path(OUTPUT_DIR, "clean_params.csv"), row.names = FALSE)
+write.csv(c_procedure, file = file.path(OUTPUT_DIR, "clean_procedure.csv"), row.names = FALSE)
+```
+
+
+
+```{r}
+summary(sop_compliant_data)
+malformed_gene_id <- sop_compliant_data %>% 
   filter(!str_detect(gene_accession_id, "^MGI:\\d+$"))
 print(malformed_gene_id)
 ```
@@ -322,14 +349,22 @@ print(malformed_gene_id)
 
 
 ```{r}
-inner_join(sop_data, c_disease_info, by = "gene_accession_id")
+inner_join(sop_compliant_data, c_disease_info, by = "gene_accession_id")
 ```
 
 
 
 ```{r}
-distinct_mouse_strain<-distinct(data, mouse_strain)
+distinct_mouse_strain<-distinct(sop_compliant_data, mouse_life_stage)
 print(distinct_mouse_strain)
+
+distinct_mouse_strain<-distinct(data, mouse_life_stage)
+print(distinct_mouse_strain)
+
+c_disease_info[is.na(sop_compliant_data$mouse_life_stage), ]
+
+
+sapply(c_procedure, function(x) sum(is.na(x)))
 
 
 p_limits <- get_limits(sop, "pvalue")
