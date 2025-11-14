@@ -6,12 +6,22 @@ library(dplyr)    # filter, mutate, distinct, joins
 library(stringr)  # str_trim
 library(tidyr)
 library(stringdist)
-# -----------------------------------------
-# 1) IMPC Parameter Description
-# -----------------------------------------
+
+#Short variable prefix guide
+#rn_ = renamed columns
+#c_ = went through initial cleaning
+#sop_compliant = has been checked against SOP requirements 
+
+#----------#
+#parse info through command line:
+
+args <- commandArgs(trailingOnly = TRUE)
+
+#----------#
+#input and output directories:
 
 DATA_DIR <- "/Users/sof/Documents/Msc/DCDM/cw1/dcdm_group1"
-OUTPUT_DIR <- "/Users/sof/Documents/Msc/DCDM/cw1/dcdm_group1/outputs" #to save data!
+OUTPUT_DIR <- "/Users/sof/Documents/Msc/DCDM/cw1/dcdm_group1/outputs" 
 
 #create the folder if it doesn't exist
 if (!dir.exists(OUTPUT_DIR)) {
@@ -19,22 +29,16 @@ if (!dir.exists(OUTPUT_DIR)) {
 }
 
 params <- read.csv(file.path(DATA_DIR, "/metadata/IMPC_parameter_description.txt"))
-nrow(params)
 
 procedure <- read.csv(file.path(DATA_DIR, "/metadata/IMPC_procedure.txt"))
-nrow(procedure)
 
 disease_info <- read.csv(
   file.path(DATA_DIR, "/metadata/Disease_information.txt"),
   sep = "\t", check.names = FALSE, stringsAsFactors = FALSE
 )
-nrow(disease_info)
 
 data <- read.csv(file.path(DATA_DIR, "/outputs/merged_all.csv"))
-nrow(data)
-
 sop <- read.csv(file.path(DATA_DIR, "/metadata/IMPC_SOP.csv"))
-nrow(sop)
 
 ```
 
@@ -43,10 +47,6 @@ nrow(sop)
 
 valid_mouse_strains <- c("C57BL", "B6J", "C3H", "129SV")
 valid_mouse_stages <- c("E12.5", "E15.5", "E18.5", "E9.5", "Early adult", "Late adult", "Middle aged adult")
-
-#-------------------------------#
-#        Misc + format          #
-#-------------------------------#
 
 
 #remove whitespaces and make sure there's only single spaces, not double
@@ -130,6 +130,7 @@ check_chr <- function(df, col, good, max_dist = 2) {
   )
 }
 
+#check any df for compliance on sop 
 validate_sop <- function(df_list,sop){
   if (is.data.frame(df_list)) {
     df_list <- list(df = df_list) #allow for a single df if needed
@@ -141,7 +142,7 @@ validate_sop <- function(df_list,sop){
   for (df_name in names(df_list)) {  #for each df...
     
     df <- df_list[[df_name]]
-    all_bad_rows <- c()
+    all_bad_rows <- integer(0)
     
     missing_col <- setdiff(sop$dataField, names(df)) #it is normal that files do not contain all of SOP values. Itll just show a message.
     
@@ -152,14 +153,19 @@ validate_sop <- function(df_list,sop){
         origin = df_name,
         field = missing_col,
         issue = "Column missing from data frame",
-        expected = "Column required by SOP",
-        value = NA,
+        expected = "Column expected by SOP",
+        value = paste("No action needed. For informative purposes"),
         stringsAsFactors = FALSE
       )
     }
     
     #we want to validate only confirmed pairs (therefore it is SUPER important that names are std BEFORE running this) - so columns in df to test MUST have at least one column called like an item of the SOP
     common_fields <- intersect(sop$dataField, names(df))
+    #in case a df has no matching columns
+    if (length(common_fields) == 0) {cleaned_list[[df_name]] <- df
+    next
+    } 
+
     sop_subset <- sop[sop$dataField %in% common_fields,]
     
     #now to validate those that match in both
@@ -232,7 +238,13 @@ validate_sop <- function(df_list,sop){
     }
     
     bad_unique <- unique(all_bad_rows)
-    cleaned_df <- df[-bad_unique, ]
+    
+    if (is.null(bad_unique) || length(bad_unique) == 0) {
+      cleaned_df <- df} 
+    else {
+      cleaned_df <- df[-bad_unique, , drop = FALSE]
+    }
+    
     cleaned_list[[df_name]] <- cleaned_df
   }
   
@@ -247,11 +259,6 @@ validate_sop <- function(df_list,sop){
 
 ```
 
-```{r}
-sapply(params, class)
-sapply(procedure, class)
-sapply(data, class)
-```
 
 ```{r}
 #Orthogonal files:
@@ -299,7 +306,15 @@ c_disease_info <- rn_disease_info %>%
   std_na()  %>%
   distinct(do_disease_id,do_disease_name,omim_id,gene_accession_id, .keep_all = TRUE)
 
-#now check for SOP comp
+#now check for SOP compliance
+
+orth_sop_compliant = validate_sop(list(params = c_params, procedure = c_procedure, disease_info = c_procedure),sop)
+
+sop_compliant_params = orth_sop_compliant$data$params
+sop_compliant_procedure = orth_sop_compliant$data$procedure
+sop_compliant_disease_info = orth_sop_compliant$data$disease_info
+
+qc_orth_sop_compliant = orth_sop_compliant$qc
 ```
 
 ```{r}
@@ -310,12 +325,14 @@ c_data <- data %>%
   std_na() %>%
   distinct() %>% 
   mutate(gene_accession_id = toupper(gene_accession_id)) %>%
-  mutate(mouse_life_stage = str_to_sentence(str_to_lower(mouse_life_stage)))
+  mutate(parameter_id = toupper(parameter_id)) %>%
+  mutate(mouse_life_stage = str_to_sentence(str_to_lower(mouse_life_stage))) %>%
+  mutate(gene_symbol = str_to_sentence(str_to_lower(gene_symbol)))
 
 qc_corrected_mouse_strain <- NULL
 qc_sop_compliant <- NULL
 
-#now check for SOP comp
+#now check for SOP compliance
 sop_compliant_data <- c_data %>%
   check_chr("mouse_strain", valid_mouse_strains, max_dist = 2) %>%
   { 
@@ -330,84 +347,12 @@ sop_compliant_data <- c_data %>%
 
 
 ```{r}
-#save clean data to insert to sql
+#save clean data
 write.csv(sop_compliant_data, file = file.path(OUTPUT_DIR, "clean_data.csv"), row.names = FALSE)
 write.csv(c_disease_info, file = file.path(OUTPUT_DIR, "clean_disease_info.csv"), row.names = FALSE)
 write.csv(c_params, file = file.path(OUTPUT_DIR, "clean_params.csv"), row.names = FALSE)
 write.csv(c_procedure, file = file.path(OUTPUT_DIR, "clean_procedure.csv"), row.names = FALSE)
 ```
 
-
-
-```{r}
-summary(sop_compliant_data)
-malformed_gene_id <- sop_compliant_data %>% 
-  filter(!str_detect(gene_accession_id, "^MGI:\\d+$"))
-print(malformed_gene_id)
-```
-
-
-
-```{r}
-inner_join(sop_compliant_data, c_disease_info, by = "gene_accession_id")
-```
-
-
-
-```{r}
-distinct_mouse_strain<-distinct(sop_compliant_data, mouse_life_stage)
-print(distinct_mouse_strain)
-
-distinct_mouse_strain<-distinct(data, mouse_life_stage)
-print(distinct_mouse_strain)
-
-c_disease_info[is.na(sop_compliant_data$mouse_life_stage), ]
-
-
-sapply(c_procedure, function(x) sum(is.na(x)))
-
-
-p_limits <- get_limits(sop, "pvalue")
-p_min <- p_limits$min
-p_max <- p_limits$max
-```
-
-
-
-
-```{r}
-conflicts <- cleaned %>%
-  group_by(parameterId) %>%
-  filter(
-    n_distinct(impcParameterOrigId) > 1 &
-    n_distinct(name) > 1
-  ) %>%
-  arrange(parameterId, name) %>%
-  ungroup()
-
-params_unique <- cleaned %>%
-  group_by(parameterId) %>%
-  arrange(
-    desc(!is.na(description)),   # prefer rows with descriptions
-    desc(nchar(name)),           # prefer longer, more informative names
-    name                         # tie-breaker
-  ) %>%
-  slice(1) %>%                   # keep the best row
-  ungroup()
-
-
-cleaned %>%
-  count(parameterId) %>%
-  filter(n > 1)
-
-cleaned %>%
-  count(impcParameterOrigId) %>%
-  filter(n > 1)
-
-
-nrow(params_unique)
-```
-```{r}
-head(data)
-```
+-----------
 
