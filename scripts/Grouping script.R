@@ -1,7 +1,7 @@
 library(tidyverse)
 library(dplyr)
 
-setwd("~/OneDrive/Desktop/DCDM_Group_Project/")
+setwd("~/Desktop/DCDM_Group_Project/")
 
 merge_data = read_csv("clean_data.csv")
 
@@ -11,6 +11,7 @@ head(merge_data)
 class(merge_data)
 dim(merge_data)
 colnames(merge_data)
+view(merge_data)
 
 # Lists all the distinct parameters within the csv
 unique_param = unique(merge_data$parameter_name)
@@ -42,55 +43,71 @@ View(common_word)
 
 
 
-# Grouping parameters based on their keywords
-
-merge_data = merge_data%>%
+merge_data <- merge_data %>%
   mutate(parameter_group = case_when(
-    # metabolism group
-    str_detect(parameter_name, regex("glucose|cholesterol|hdl-cholesterol|creatinine|alanine|urea|insulin|fructosamine|
-                                     magnesium|albumin|protein|calcium|iron|fatty|phospholipids|phosphatase|fattyacids|
-                                     triglycerides|phosphorus", ignore_case = TRUE)) ~ "Metabolism",
+    
+    # Metabolism group
+    (str_detect(parameter_name, regex(
+        "glucose|cholesterol|hdl-cholesterol|creatinine|alanine|urea|insulin|fructosamine|
+         magnesium|albumin|protein|calcium|iron|fatty|phospholipids|phosphatase|fattyacids|
+         triglycerides|phosphorus", ignore_case = TRUE)) |
+        str_starts(parameter_id, "IMPC_IPG") |
+        str_starts(parameter_id, "IMPC_INS")
+    ) ~ "Metabolism",
+    
     # Weight group
-    str_detect(parameter_name, regex("weight|mass|lean|lean/body|fat|\\bfat\\|fat/body|composition", ignore_case = TRUE)) ~ "Weight",
+    (str_detect(parameter_name, regex(
+        "Bone|weight|mass|lean|lean/body|fat|\\bfat\\|fat/body|composition",
+        ignore_case = TRUE)) |
+        str_starts(parameter_id, "IMPC_DXA") |
+        str_starts(parameter_id, "IMPC_HWT") |
+        str_starts(parameter_id, "IMPC_OWT")
+    ) ~ "Weight",
     
     # Images group
-    str_detect(parameter_name, regex("morphology|retina|retinal|eye|optic|lens|vitreous|
-                                     vessels|hyaloid|pattern|structure
-                                     |shape|thickness|color|texture|appearance
-                                     ", ignore_case = TRUE)) ~ "Images",
+    (str_detect(parameter_name, regex(
+        "morphology|retina|retinal|eye|optic|lens|vitreous|
+         vessels|hyaloid|pattern|shape|thickness|color|texture|appearance",
+        ignore_case = TRUE)) |
+        str_starts(parameter_id, "CCP_XRY") |
+        str_starts(parameter_id, "JAX_XRY") |
+        str_starts(parameter_id, "TCP_XRY") |
+        str_starts(parameter_id, "IMPC_EYE")
+    ) ~ "Images",
     
     # Brain group
-    str_detect(parameter_name, regex("brain|gait|neurological|reflex|response|sleep|
-                                     coordination|sleep|balance|prepulse|hemorrhage", ignore_case = TRUE)) ~ "Brain",
+    (str_detect(parameter_name, regex(
+        "brain|reflex|response|sleep|balance|prepulse|hemorrhage|ABR",
+        ignore_case = TRUE)) |
+        str_starts(parameter_id, "IMPC_ABR")
+    ) ~ "Brain",
     
-    # Haemotology group
-    str_detect(parameter_name, regex("vessels|vessel|platelets|hematological|blood|leukocytes|white blood|biliubin|eosinophil|basophil|neutrophil|white|platelet|lymphocytes|CD8+|haemoglobin|hemoglobin", ignore_case = TRUE)) ~ "Haemotology",
+    # Haematology group
+    (str_detect(parameter_name, regex(
+        "vessels|vessel|platelets|hematological|blood|leukocytes|white blood|bilirubin|
+         eosinophil|basophil|neutrophil|platelet|lymphocytes|CD8+|haemoglobin|hemoglobin",
+        ignore_case = TRUE)) |
+        str_starts(parameter_id, "IMPC_HEM") |
+        str_starts(parameter_id, "IMPC_CBC")
+    ) ~ "Haematology",
     
     # Motor function group
-    str_detect(parameter_name, regex("sp")
-               
-     
+    (str_detect(parameter_name, regex(
+        "grip|strength|locomotor|motor|movement|gait",
+        ignore_case = TRUE)) |
+        str_starts(parameter_id, "IMPC_GRS") |
+        str_starts(parameter_id, "HMGULA_GRS")
+    ) ~ "Motor function",
     
-    
-    
-    TRUE ~ "Other"))
+    TRUE ~ "Other"
+  ))
+
+
 
 colnames(merge_data)
 table(merge_data$parameter_group)
 View(merge_data)
 
-# Found inconsistencies in mouse_life_stage
-# Inconsistencies in casing of embryonic day
-
-unique(merge_data$mouse_life_stage)
-View(merge_data$mouse_life_stage)
-
-#Seperate data frame
-#mouselife_lower = data.frame(tolower(merge_data$mouse_life_stage))
-#view(mouselife_lower)
-
-merge_data$mouse_life_stage = tolower(merge_data$mouse_life_stage)
-unique(merge_data$mouse_life_stage)
 
 # Remember there is a lower case parameter ID which needs to be capitalized
 # 451 cells in the parameter_id column were lowercase 
@@ -124,7 +141,7 @@ tail(merge_data)
 head(merge_data)
 
 
-# Detecting unique mousestrains 
+# Detecting unique mouse strains 
 
 unique_mouse_strain = unique(merge_data$mouse_strain)
 View(unique_mouse_strain)
@@ -134,5 +151,9 @@ View(unique_mouse_strain)
 unique_gene_symbol = unique(merge_data$gene_symbol)
 view(unique_gene_symbol)
 
+# Listing unique parameter_id
+unique_parameter_id = unique(merge_data$parameter_id)
+length(unique_parameter_id)
+unique_parameter_id_df = data.frame(parameter_id = unique_parameter_id)
+View(unique_parameter_id_df)
 
-     
