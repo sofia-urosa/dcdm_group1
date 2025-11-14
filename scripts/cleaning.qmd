@@ -1,27 +1,49 @@
-```{r}
-#install.packages("stringdist")
-
-library(readr)    # read_delim / read_csv
-library(dplyr)    # filter, mutate, distinct, joins
-library(stringr)  # str_trim
-library(tidyr)
-library(stringdist)
-
 #Short variable prefix guide
 #rn_ = renamed columns
 #c_ = went through initial cleaning
 #sop_compliant = has been checked against SOP requirements 
 
-#----------#
+```{r} 
+#packages needed...
+#install.packages("stringdist")
+
+library(dplyr)    # filter, mutate, distinct, joins
+library(stringr)  # str_trim
+library(tidyr)
+library(stringdist)
+```
+
 #parse info through command line:
 
+```{r}
 args <- commandArgs(trailingOnly = TRUE)
 
-#----------#
+parse_args <- function(args) {
+  out <- list()
+  for (arg in args) {
+    # if it's --key=value
+    if (grepl("=", arg)) {
+      tmp <- strsplit(arg, "=", fixed = TRUE)[[1]]
+      k <- sub("^--", "", tmp[1])
+      out[[k]] <- tmp[2]
+    }
+  }
+  out
+}
+
+opts <- parse_args(args)
+
+cat("Input directory:", opts$inputdir, "\n")
+cat("File:", opts$file, "\n")
+cat("Threads:", opts$threads, "\n")
+```
+
+
+```{r}
 #input and output directories:
 
-DATA_DIR <- "/Users/sof/Documents/Msc/DCDM/cw1/dcdm_group1"
-OUTPUT_DIR <- "/Users/sof/Documents/Msc/DCDM/cw1/dcdm_group1/outputs" 
+DATA_DIR <- "/Users/sof/Documents/Msc/DCDM/dcdm_group1"
+OUTPUT_DIR <- "/Users/sof/Documents/Msc/DCDM/dcdm_group1/outputs" 
 
 #create the folder if it doesn't exist
 if (!dir.exists(OUTPUT_DIR)) {

@@ -1,0 +1,15 @@
+# R session files
+.Rhistory
+**/.Rhistory
+.RData
+.Ruserdata
+
+# RStudio project files (if you ever use them)
+.Rproj.user/
+
+# Raw / intermediate data
+clean_data.csv
+data/
+
+# Other temporary files
+*.tmp
