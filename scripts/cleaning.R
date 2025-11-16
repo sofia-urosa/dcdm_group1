@@ -6,10 +6,12 @@
 #packages needed...
 #install.packages("stringdist")
 
-library(dplyr)    # filter, mutate, distinct, joins
-library(stringr)  # str_trim
-library(tidyr)
-library(stringdist)
+suppressPackageStartupMessages({
+  library(dplyr)
+  library(stringr) #trim string
+  library(tidyr)
+  library(stringdist)
+})
 
 args <- commandArgs(trailingOnly = TRUE)
 
@@ -55,16 +57,16 @@ log(paste("Output directory:", OUTPUT_DIR))
 #Load data
 
 log("Loading metadata files...")
-params <- read.csv(file.path(DATA_DIR, "/metadata/IMPC_parameter_description.txt"))
-procedure <- read.csv(file.path(DATA_DIR, "/metadata/IMPC_procedure.txt"))
+params <- read.csv(file.path(DATA_DIR, "metadata/IMPC_parameter_description.txt"))
+procedure <- read.csv(file.path(DATA_DIR, "metadata/IMPC_procedure.txt"))
 disease_info <- read.csv(
-  file.path(DATA_DIR, "/metadata/Disease_information.txt"),
+  file.path(DATA_DIR, "metadata/Disease_information.txt"),
   sep = "\t", check.names = FALSE, stringsAsFactors = FALSE
 )
 
 log("Loading merged data...")
 data <- read.csv(file.path(OUTPUT_DIR, "/merged_all.csv"))
-sop <- read.csv(file.path(DATA_DIR, "/metadata/IMPC_SOP.csv"))
+sop <- read.csv(file.path(DATA_DIR, "metadata/IMPC_SOP.csv"))
 
 valid_mouse_strains <- c("C57BL", "B6J", "C3H", "129SV")
 
@@ -234,12 +236,15 @@ validate_sop <- function(df_list,sop){
 
 log("Cleaning orthogonal files...")
 
+#renaming now will save headaches when ingesting 
+#the data into the sql
+
 rn_params <- params %>%
   rename(
     parameter_id = parameterId,
     parameter_name = name,
     parameter_description = description,
-    impc_parameter_orig_id = impcParameterOrigId
+    impc_orig_id = impcParameterOrigId
   )
 
 rn_procedure <- procedure %>%
@@ -247,7 +252,7 @@ rn_procedure <- procedure %>%
     procedure_name = name,
     procedure_description = description,
     is_mandatory = isMandatory,
-    impc_parameter_orig_id = impcParameterOrigId
+    impc_orig_id = impcParameterOrigId
   )
 
 rn_disease_info <- disease_info %>%
@@ -259,11 +264,11 @@ rn_disease_info <- disease_info %>%
   )
 
 c_params <- rn_params %>% trim_whitespace() %>% std_na() %>%
-  distinct(impc_parameter_orig_id, parameter_id, .keep_all = TRUE)
+  distinct(impc_orig_id, parameter_id, .keep_all = TRUE)
 
 c_procedure <- rn_procedure %>% trim_whitespace() %>% std_na() %>%
   coerce_bool("is_mandatory") %>%
-  distinct(procedure_name,procedure_description,is_mandatory,impc_parameter_orig_id, .keep_all = TRUE)
+  distinct(procedure_name,procedure_description,is_mandatory,impc_orig_id, .keep_all = TRUE)
 
 c_disease_info <- rn_disease_info %>%
   trim_whitespace() %>%
@@ -281,6 +286,40 @@ sop_compliant_params = orth_sop_compliant$data$params
 sop_compliant_procedure = orth_sop_compliant$data$procedure
 sop_compliant_disease_info = orth_sop_compliant$data$disease_info
 qc_orth_sop_compliant = orth_sop_compliant$qc
+
+
+#add a procedure_id column that will also save headaches in SQL
+#a procedure has many parameters, and each parameter belongs to one procedure
+
+#e.g.
+#MicroCT = a test
+#impc_parameter_orig_id = a specific measurement inside that test
+dim_procedure <- sop_compliant_procedure %>%
+  distinct(procedure_name, procedure_description) %>%
+  arrange(procedure_name) %>%
+  mutate(procedure_id = sprintf("PROC_%03d", row_number()))
+
+#joins back to params so we have impcID, procedure_id
+proc_with_ids <- sop_compliant_procedure %>%
+  left_join(dim_procedure, by = c("procedure_name", "procedure_description")) %>%
+  select(impc_orig_id, procedure_id)
+
+param_map <- sop_compliant_params %>%
+  select(impc_orig_id, parameter_id)
+
+parameter_procedure <- proc_with_ids %>%
+  inner_join(param_map, by = "impc_orig_id") %>%
+  select(parameter_id, procedure_id) %>%
+  distinct()
+
+#gene disease table
+disease <- sop_compliant_disease_info %>%
+  select(do_disease_id, do_disease_name, omim_id) %>%
+  distinct()
+
+gene_disease <- sop_compliant_disease_info %>%
+  select(gene_accession_id, do_disease_id) %>%
+  distinct()
 
 #clean data
 
@@ -317,9 +356,16 @@ sop_compliant_data <- c_data %>%
 log("Saving cleaned datasets...")
 
 write.csv(sop_compliant_data, file.path(OUTPUT_DIR, "clean_data.csv"), row.names = FALSE)
-write.csv(c_disease_info, file.path(OUTPUT_DIR, "clean_disease_info.csv"), row.names = FALSE)
-write.csv(c_params, file.path(OUTPUT_DIR, "clean_params.csv"), row.names = FALSE)
-write.csv(c_procedure, file.path(OUTPUT_DIR, "clean_procedure.csv"), row.names = FALSE)
+write.csv(sop_compliant_disease_info, file.path(OUTPUT_DIR, "clean_disease_info.csv"), row.names = FALSE)
+write.csv(sop_compliant_params, file.path(OUTPUT_DIR, "clean_params.csv"), row.names = FALSE)
+write.csv(sop_compliant_procedure, file.path(OUTPUT_DIR, "clean_procedure.csv"), row.names = FALSE)
+
+log("Saving brigde tables...")
+write.csv(dim_procedure, file.path(OUTPUT_DIR, "dim_procedure.csv"), row.names = FALSE)
+write.csv(parameter_procedure, file.path(OUTPUT_DIR, "parameter_procedure.csv"), row.names = FALSE)
+
+write.csv(disease, file.path(OUTPUT_DIR, "disease.csv"), row.names = FALSE)
+write.csv(gene_disease, file.path(OUTPUT_DIR, "gene_disease.csv"), row.names = FALSE)
 
 #qc csv
 log("Saving QC tables...")
