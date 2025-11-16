@@ -14,18 +14,18 @@ DROP VIEW IF EXISTS pvalue_collapsed;
 -- one row per distinct IMPC parameter
 
 CREATE TABLE IF NOT EXISTS `parameters` (
-  parameter_id   	VARCHAR(64) PRIMARY KEY,
-  parameter_name 	VARCHAR(255) NOT NULL,
-  description 	 	TEXT,
-  is_mandatory 	 	BOOLEAN,
-  impc_orig_id   	INT
+  parameter_id   	          VARCHAR(64) PRIMARY KEY,
+  parameter_name 	          VARCHAR(255) NOT NULL,
+  parameter_description 	 	TEXT,
+  impc_orig_id   	          INT
 ) ENGINE=InnoDB;
 
 -- II. Procedures
 CREATE TABLE IF NOT EXISTS `dim_procedure` (
-  `procedure_id`		VARCHAR(64) PRIMARY KEY,
-  `procedure_name`		VARCHAR(255),
-  `description`			TEXT
+  `procedure_id`		          VARCHAR(64) PRIMARY KEY,
+  `procedure_name`		        VARCHAR(255),
+  `procedure_description`			TEXT,
+  is_mandatory                BOOLEAN,
 ) ENGINE=InnoDB;
 
 -- III. Parameter <-> procedure (many-to-many)
