@@ -1,119 +1,110 @@
-# Create and select the IMPC database.
-# Running this file sets up the schema.
-CREATE DATABASE IF NOT EXISTS impc_db;
-USE impc_db;
+CREATE DATABASE IF NOT EXISTS impc;
+USE impc;
 
-# Core dimension tables for normalized lookup values.
-CREATE TABLE IF NOT EXISTS `gene` (
-  `gene_accession_id` VARCHAR(64) PRIMARY KEY,
-  `gene_symbol`       VARCHAR(128)
+DROP VIEW IF EXISTS pvalue_log10;
+DROP VIEW IF EXISTS pvalue_collapsed;
+
+-- Text-book 3NF says splitting gene, strain and life_stage into
+-- their own tables is “more correct”, but for our dataset it added
+-- complexity without giving us anything useful back.
+-- These fields have tiny cardinality and don’t change over time,
+-- so normalising them only creates more joins and slows queries.
+
+-- I. Parameters:
+-- one row per distinct IMPC parameter
+
+CREATE TABLE IF NOT EXISTS `parameters` (
+  parameter_id   	VARCHAR(64) PRIMARY KEY,
+  parameter_name 	VARCHAR(255) NOT NULL,
+  description 	 	TEXT,
+  is_mandatory 	 	BOOLEAN,
+  impc_orig_id   	INT
 ) ENGINE=InnoDB;
 
-CREATE TABLE IF NOT EXISTS `strain` (
-  `mouse_strain` VARCHAR(128) PRIMARY KEY
+-- II. Procedures
+CREATE TABLE IF NOT EXISTS `dim_procedure` (
+  `procedure_id`		VARCHAR(64) PRIMARY KEY,
+  `procedure_name`		VARCHAR(255),
+  `description`			TEXT
 ) ENGINE=InnoDB;
 
-CREATE TABLE IF NOT EXISTS `life_stage` (
-  `mouse_life_stage` VARCHAR(64) PRIMARY KEY
+-- III. Parameter <-> procedure (many-to-many)
+CREATE TABLE parameter_procedure(
+	parameter_id 	VARCHAR(64),
+	procedure_id 	VARCHAR(64),
+PRIMARY KEY (parameter_id, procedure_id),
+FOREIGN KEY (parameter_id) REFERENCES parameters(parameter_id),
+FOREIGN KEY (procedure_id) REFERENCES dim_procedure(procedure_id)
 ) ENGINE=InnoDB;
 
-CREATE TABLE IF NOT EXISTS `analysis` (
-  `analysis_id` VARCHAR(64) PRIMARY KEY,
-  `filename`    VARCHAR(255)
-) ENGINE=InnoDB;
-
-CREATE TABLE IF NOT EXISTS `parameter` (
-  `parameter_id`   VARCHAR(64) PRIMARY KEY,
-  `parameter_name` VARCHAR(255) NOT NULL
-) ENGINE=InnoDB;
-
-# Optional metadata dimensions for procedures and diseases.
-CREATE TABLE IF NOT EXISTS `procedure_dim` (
-  `procedure_id` VARCHAR(64) PRIMARY KEY,
-  `code`         VARCHAR(64),
-  `name`         VARCHAR(255),
-  `description`  TEXT
-) ENGINE=InnoDB;
-
+-- IV. Diseases
 CREATE TABLE IF NOT EXISTS `disease` (
-  `disease_id` VARCHAR(64) PRIMARY KEY,
-  `doid`       VARCHAR(64),
-  `name`       VARCHAR(255)
+  do_disease_id     VARCHAR(32) PRIMARY KEY,
+  do_disease_name	VARCHAR(255),
+  omim_id			VARCHAR(32)
 ) ENGINE=InnoDB;
 
+-- V. Gene <-> disease map (many-to-many)
 CREATE TABLE IF NOT EXISTS `gene_disease` (
-  `gene_accession_id` VARCHAR(64) NOT NULL,
-  `disease_id`        VARCHAR(64) NOT NULL,
-  `evidence`          VARCHAR(255),
-  PRIMARY KEY (`gene_accession_id`, `disease_id`),
-  FOREIGN KEY (`gene_accession_id`) REFERENCES `gene`(`gene_accession_id`),
-  FOREIGN KEY (`disease_id`)        REFERENCES `disease`(`disease_id`)
+  `gene_accession_id` VARCHAR(32) NOT NULL,
+  `do_disease_id`     VARCHAR(32) NOT NULL,
+  PRIMARY KEY (gene_accession_id, do_disease_id),
+   FOREIGN KEY (do_disease_id) REFERENCES disease(do_disease_id)
 ) ENGINE=InnoDB;
 
-# Parameter grouping tables for reporting and visualisation.
+-- VI. Parameter Groups
 CREATE TABLE IF NOT EXISTS `parameter_group` (
-  `group_id`    INT AUTO_INCREMENT PRIMARY KEY,
-  `group_name`  VARCHAR(64) UNIQUE NOT NULL,
-  `description` TEXT
+  group_name        VARCHAR(64) PRIMARY KEY
 ) ENGINE=InnoDB;
 
+-- VII. Parameter <-> group (many-to-many)
 CREATE TABLE IF NOT EXISTS `parameter_group_map` (
-  `parameter_id` VARCHAR(64) NOT NULL,
-  `group_id`     INT NOT NULL,
-  PRIMARY KEY (`parameter_id`, `group_id`),
-  FOREIGN KEY (`parameter_id`) REFERENCES `parameter`(`parameter_id`),
-  FOREIGN KEY (`group_id`)     REFERENCES `parameter_group`(`group_id`)
+  `parameter_id`	VARCHAR(64),
+  `group_name`      VARCHAR(64),
+  PRIMARY KEY (`parameter_id`, `group_name`),
+  FOREIGN KEY (`parameter_id`) REFERENCES `parameters`(`parameter_id`),
+  FOREIGN KEY (`group_name`) REFERENCES `parameter_group`(`group_name`)
 ) ENGINE=InnoDB;
 
-# Main fact table storing one row per measurement with foreign key links.
-CREATE TABLE IF NOT EXISTS `measurement` (
-  `measurement_id`    BIGINT AUTO_INCREMENT PRIMARY KEY,
-  `gene_accession_id` VARCHAR(64) NOT NULL,
-  `parameter_id`      VARCHAR(64) NOT NULL,
-  `mouse_strain`      VARCHAR(128) NOT NULL,
-  `mouse_life_stage`  VARCHAR(64)  NOT NULL,
-  `analysis_id`       VARCHAR(64)  NOT NULL,
-  `p_value`           DECIMAL(8,7) NULL,
-  `source_file`       VARCHAR(255),
-  `cleaning_flag`     VARCHAR(64),
-  CONSTRAINT `fk_m_gene`   FOREIGN KEY (`gene_accession_id`) REFERENCES `gene`(`gene_accession_id`),
-  CONSTRAINT `fk_m_param`  FOREIGN KEY (`parameter_id`)      REFERENCES `parameter`(`parameter_id`),
-  CONSTRAINT `fk_m_strain` FOREIGN KEY (`mouse_strain`)      REFERENCES `strain`(`mouse_strain`),
-  CONSTRAINT `fk_m_stage`  FOREIGN KEY (`mouse_life_stage`)  REFERENCES `life_stage`(`mouse_life_stage`),
-  CONSTRAINT `fk_m_an`     FOREIGN KEY (`analysis_id`)       REFERENCES `analysis`(`analysis_id`),
-  INDEX `idx_m_gene` (`gene_accession_id`),
-  INDEX `idx_m_param` (`parameter_id`),
-  INDEX `idx_m_strain` (`mouse_strain`),
-  INDEX `idx_m_stage` (`mouse_life_stage`),
-  INDEX `idx_m_an` (`analysis_id`),
-  INDEX `idx_m_gene_param` (`gene_accession_id`, `parameter_id`),
-  # Unique key to enforce one row per gene, parameter, strain, life stage, and analysis.
-  UNIQUE KEY `uk_m_dedup` (
-    `gene_accession_id`,
-    `parameter_id`,
-    `mouse_strain`,
-    `mouse_life_stage`,
-    `analysis_id`
-  )
+-- VIII. Fact table:
+-- stores phenotyping results
+CREATE TABLE IF NOT EXISTS `analysis` (
+  analysis_id		 VARCHAR(64) PRIMARY KEY,
+  gene_accession_id  VARCHAR(32),
+  gene_symbol        VARCHAR(32),
+  mouse_strain       VARCHAR(16),
+  mouse_life_stage   VARCHAR(32),
+  parameter_id       VARCHAR(64),
+  pvalue             DECIMAL(10,7),
+  FOREIGN KEY (parameter_id) REFERENCES parameters(parameter_id)
 ) ENGINE=InnoDB;
 
-# Archive table for discarded or duplicate measurements.
-CREATE TABLE IF NOT EXISTS `measurement_archive` LIKE `measurement`;
+-- IX. View of min pvalue per gene,strain,stage,parameter. 
+-- Helper for RShiny Figures
+CREATE VIEW pvalue_collapsed AS 
+SELECT 
+gene_accession_id, 
+gene_symbol, 
+mouse_strain, 
+mouse_life_stage, 
+parameter_id, 
+min(pvalue) AS lowest_pvalue
+FROM analysis 
+GROUP BY 1,2,3,4,5;
 
-# View with convenience column for -log10(p) on valid p-values.
-CREATE OR REPLACE VIEW `measurement_v` AS
-SELECT m.*,
-  CASE WHEN m.p_value > 0 AND m.p_value <= 1 THEN -LOG10(m.p_value) END AS neglog10_p
-FROM `measurement` m;
+-- X. And -Log10(pvalue) to aid further with viz
+CREATE VIEW pvalue_log10 AS 
+SELECT 
+  gene_accession_id, 
+  gene_symbol, 
+  mouse_strain, 
+  mouse_life_stage, 
+  parameter_id,
+  CASE WHEN lowest_pvalue > 0 AND lowest_pvalue <= 1 
+       THEN -LOG10(lowest_pvalue) 
+       ELSE NULL 
+  END AS neglog10p
+FROM pvalue_collapsed;
 
-# ETL run log with basic metadata and row counts.
-CREATE TABLE IF NOT EXISTS `ingest_log` (
-  `ingest_id`     BIGINT AUTO_INCREMENT PRIMARY KEY,
-  `run_at`        DATETIME NOT NULL,
-  `filename`      VARCHAR(255),
-  `sha256`        CHAR(64),
-  `rows_in`       INT,
-  `rows_loaded`   INT,
-  `rows_archived` INT,
-  `invalid_p`     INT
-) ENGINE=InnoDB;
+
+
