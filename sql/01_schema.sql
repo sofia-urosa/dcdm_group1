@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS `dim_procedure` (
   `procedure_id`		          VARCHAR(64) PRIMARY KEY,
   `procedure_name`		        VARCHAR(255),
   `procedure_description`			TEXT,
-  is_mandatory                BOOLEAN,
+  is_mandatory                BOOLEAN
 ) ENGINE=InnoDB;
 
 -- III. Parameter <-> procedure (many-to-many)
