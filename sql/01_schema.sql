@@ -106,5 +106,102 @@ SELECT
   END AS neglog10p
 FROM pvalue_collapsed;
 
+-- Populating the data
 
+LOAD DATA LOCAL INFILE '/Users/sof/Documents/Msc/DCDM/dcdm_group1/outputs/clean_params.csv'
+INTO TABLE parameters
+FIELDS TERMINATED BY ',' 
+OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY '\n'
+IGNORE 1 ROWS
+(@impc_orig_id, @parameter_name, @parameter_description, @parameter_id)
+SET
+    parameter_id = @parameter_id,
+    parameter_name = @parameter_name,
+    parameter_description = @parameter_description,
+    impc_orig_id = @impc_orig_id;
+
+LOAD DATA LOCAL INFILE '/Users/sof/Documents/Msc/DCDM/dcdm_group1/outputs/dim_procedure.csv'
+INTO TABLE dim_procedure
+FIELDS TERMINATED BY ',' 
+OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY '\n'
+IGNORE 1 ROWS
+(@procedure_name, @procedure_description, @procedure_id)
+SET
+    procedure_id = @procedure_id,
+    procedure_name = @procedure_name,
+    procedure_description = @procedure_description;
+
+LOAD DATA LOCAL INFILE '/Users/sof/Documents/Msc/DCDM/dcdm_group1/outputs/parameter_procedure.csv'
+INTO TABLE parameter_procedure
+FIELDS TERMINATED BY ',' 
+OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY '\n'
+IGNORE 1 ROWS
+(parameter_id, procedure_id);
+
+LOAD DATA LOCAL INFILE '/Users/sof/Documents/Msc/DCDM/dcdm_group1/outputs/clean_disease_info.csv'
+INTO TABLE disease
+FIELDS TERMINATED BY ',' 
+OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY '\n'
+IGNORE 1 ROWS
+(do_disease_id, do_disease_name, omim_id, @gene_accession_id);
+
+LOAD DATA LOCAL INFILE '/Users/sof/Documents/Msc/DCDM/dcdm_group1/outputs/clean_disease_info.csv'
+INTO TABLE gene_disease
+FIELDS TERMINATED BY ',' 
+OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY '\n'
+IGNORE 1 ROWS
+(@do, @name, @omim, @gene)
+SET
+    do_disease_id = @do,
+    gene_accession_id = @gene;
+
+LOAD DATA LOCAL INFILE '/Users/sof/Documents/Msc/DCDM/dcdm_group1/outputs/parameter_group.csv'
+INTO TABLE parameter_group
+FIELDS TERMINATED BY ',' 
+OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY '\n'
+IGNORE 1 ROWS
+(group_name);
+
+LOAD DATA LOCAL INFILE '/Users/sof/Documents/Msc/DCDM/dcdm_group1/outputs/parameter_group_map.csv'
+INTO TABLE parameter_group_map
+FIELDS TERMINATED BY ',' 
+OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY '\n'
+IGNORE 1 ROWS
+(parameter_id, group_name);
+
+LOAD DATA LOCAL INFILE '/Users/sof/Documents/Msc/DCDM/dcdm_group1/outputs/clean_data.csv'
+INTO TABLE analysis
+FIELDS TERMINATED BY ',' 
+OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY '\n'
+IGNORE 1 ROWS
+(@gene, @symbol, @strain, @stage, @param_id, @param_name, @pval, @analysis)
+SET
+    analysis_id        = @analysis,
+    gene_accession_id  = @gene,
+    gene_symbol        = @symbol,
+    mouse_strain       = @strain,
+    mouse_life_stage   = @stage,
+    parameter_id       = @param_id,
+    pvalue             = @pval;
+
+-- Indexing columns that will be used to join/filter and that are not primary
+-- or foreign keys. 
+
+-- NOTE: Gene_symbol is not indexed becuse you're not going to join there. 
+-- It is joined by gene_accession_id.
+
+CREATE INDEX idx_gene_accession_id ON analysis(gene_accession_id);
+CREATE INDEX idx_parameter_id ON analysis(parameter_id);
+CREATE INDEX idx_mouse_life_stage ON analysis(mouse_life_stage);
+CREATE INDEX idx_mouse_strain ON analysis(mouse_strain);
+
+-- 
 
