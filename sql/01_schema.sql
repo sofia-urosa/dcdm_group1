@@ -150,7 +150,7 @@ LINES TERMINATED BY '\n'
 IGNORE 1 ROWS
 (do_disease_id, do_disease_name, omim_id, @gene_accession_id);
 
-LOAD DATA LOCAL INFILE '/scratch/grp/msc_appbio/DCDM/Group1/outputs/outputs/clean_disease_info.csv'
+LOAD DATA LOCAL INFILE '/scratch/grp/msc_appbio/DCDM/Group1/outputs/clean_disease_info.csv'
 INTO TABLE gene_disease
 FIELDS TERMINATED BY ',' 
 OPTIONALLY ENCLOSED BY '"'
