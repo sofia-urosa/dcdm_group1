@@ -1,6 +1,7 @@
 -- Database in the HPC has been provided, uncomment only if you're running this on a local machine.
--- CREATE DATABASE IF NOT EXISTS impc;
--- USE impc;
+
+CREATE DATABASE IF NOT EXISTS database1;
+USE database1;
 
 DROP VIEW IF EXISTS pvalue_log10;
 DROP VIEW IF EXISTS pvalue_collapsed;
@@ -109,7 +110,7 @@ FROM pvalue_collapsed;
 
 -- Populating the data
 
-LOAD DATA LOCAL INFILE '/scratch/grp/msc_appbio/DCDM/Group1/outputs/clean_params.csv'
+LOAD DATA LOCAL INFILE '/Users/sof/Documents/Msc/DCDM/dcdm_group1/outputs/clean_params.csv'
 INTO TABLE parameters
 FIELDS TERMINATED BY ',' 
 OPTIONALLY ENCLOSED BY '"'
@@ -122,7 +123,7 @@ SET
     parameter_description = @parameter_description,
     impc_orig_id = @impc_orig_id;
 
-LOAD DATA LOCAL INFILE '/scratch/grp/msc_appbio/DCDM/Group1/outputs/dim_procedure.csv'
+LOAD DATA LOCAL INFILE '/Users/sof/Documents/Msc/DCDM/dcdm_group1/outputs/dim_procedure.csv'
 INTO TABLE dim_procedure
 FIELDS TERMINATED BY ',' 
 OPTIONALLY ENCLOSED BY '"'
@@ -134,7 +135,7 @@ SET
     procedure_name = @procedure_name,
     procedure_description = @procedure_description;
 
-LOAD DATA LOCAL INFILE '/scratch/grp/msc_appbio/DCDM/Group1/outputs/parameter_procedure.csv'
+LOAD DATA LOCAL INFILE '/Users/sof/Documents/Msc/DCDM/dcdm_group1/outputs/parameter_procedure.csv'
 INTO TABLE parameter_procedure
 FIELDS TERMINATED BY ',' 
 OPTIONALLY ENCLOSED BY '"'
@@ -142,7 +143,7 @@ LINES TERMINATED BY '\n'
 IGNORE 1 ROWS
 (parameter_id, procedure_id);
 
-LOAD DATA LOCAL INFILE '/scratch/grp/msc_appbio/DCDM/Group1/outputs/clean_disease_info.csv'
+LOAD DATA LOCAL INFILE '/Users/sof/Documents/Msc/DCDM/dcdm_group1/outputs/clean_disease_info.csv'
 INTO TABLE disease
 FIELDS TERMINATED BY ',' 
 OPTIONALLY ENCLOSED BY '"'
@@ -150,7 +151,7 @@ LINES TERMINATED BY '\n'
 IGNORE 1 ROWS
 (do_disease_id, do_disease_name, omim_id, @gene_accession_id);
 
-LOAD DATA LOCAL INFILE '/scratch/grp/msc_appbio/DCDM/Group1/outputs/clean_disease_info.csv'
+LOAD DATA LOCAL INFILE '/Users/sof/Documents/Msc/DCDM/dcdm_group1/outputs/clean_disease_info.csv'
 INTO TABLE gene_disease
 FIELDS TERMINATED BY ',' 
 OPTIONALLY ENCLOSED BY '"'
@@ -161,7 +162,7 @@ SET
     do_disease_id = @do,
     gene_accession_id = @gene;
 
-LOAD DATA LOCAL INFILE '/scratch/grp/msc_appbio/DCDM/Group1/outputs/parameter_group.csv'
+LOAD DATA LOCAL INFILE '/Users/sof/Documents/Msc/DCDM/dcdm_group1/outputs/parameter_group.csv'
 INTO TABLE parameter_group
 FIELDS TERMINATED BY ',' 
 OPTIONALLY ENCLOSED BY '"'
@@ -169,7 +170,7 @@ LINES TERMINATED BY '\n'
 IGNORE 1 ROWS
 (group_name);
 
-LOAD DATA LOCAL INFILE '/scratch/grp/msc_appbio/DCDM/Group1/outputs/parameter_group_map.csv'
+LOAD DATA LOCAL INFILE '/Users/sof/Documents/Msc/DCDM/dcdm_group1/outputs/parameter_group_map.csv'
 INTO TABLE parameter_group_map
 FIELDS TERMINATED BY ',' 
 OPTIONALLY ENCLOSED BY '"'
@@ -177,7 +178,7 @@ LINES TERMINATED BY '\n'
 IGNORE 1 ROWS
 (parameter_id, group_name);
 
-LOAD DATA LOCAL INFILE '/scratch/grp/msc_appbio/DCDM/Group1/outputs/clean_data.csv'
+LOAD DATA LOCAL INFILE '/Users/sof/Documents/Msc/DCDM/dcdm_group1/outputs/clean_data.csv'
 INTO TABLE analysis
 FIELDS TERMINATED BY ',' 
 OPTIONALLY ENCLOSED BY '"'
