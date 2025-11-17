@@ -1,5 +1,6 @@
-CREATE DATABASE IF NOT EXISTS impc;
-USE impc;
+-- Database in the HPC has been provided, uncomment only if you're running this on a local machine.
+-- CREATE DATABASE IF NOT EXISTS impc;
+-- USE impc;
 
 DROP VIEW IF EXISTS pvalue_log10;
 DROP VIEW IF EXISTS pvalue_collapsed;

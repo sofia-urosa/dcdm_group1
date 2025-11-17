@@ -6,4 +6,3 @@ parameter_id
 parameter_name
 pvalue
 analysis_id
-filename

@@ -4,8 +4,8 @@
 #SBATCH --cpus-per-task=2
 #SBATCH --array=0-63
 #SBATCH --job-name=csv_merge
-#SBATCH --output=/scratch/grp/msc_appbio/DCDM/Group1/outputs/csv_merge_%A_%a.out
-#SBATCH --error=/scratch/grp/msc_appbio/DCDM/Group1/outputs/csv_merge_%A_%a.err
+#SBATCH --output=/scratch/grp/msc_appbio/DCDM/Group1/outputs/logs/csv_merge_%A_%a.out
+#SBATCH --error=/scratch/grp/msc_appbio/DCDM/Group1/outputs/logs/csv_merge_%A_%a.err
 
 set -euo pipefail
 
@@ -72,7 +72,7 @@ tar -tf "$TAR" | while read -r F; do
                 for (i=1; i<n; i++) {
                     printf "%s,", m[keys[i]]
                 }
-                printf "%s\n", fname
+                printf "%s\n", m[keys[n]]
             }
         ' >> "$OUT"
 
@@ -81,3 +81,6 @@ done
 echo "[$SLURM_ARRAY_TASK_ID] Finished. Total files: $COUNT"
 
 mv "$OUT" "$OUT_DIR/"
+mv "$OUT_DIR"/shard* "$OUT_DIR"/csv_shards
+mv "$OUT_DIR"/*err "$OUT_DIR"/logs
+mv "$OUT_DIR"/*out "$OUT_DIR"/logs 
