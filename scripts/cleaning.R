@@ -65,7 +65,7 @@ disease_info <- read.csv(
 )
 
 log("Loading merged data...")
-data <- read.csv(file.path(OUTPUT_DIR, "/merged_all.csv"))
+data <- read.csv(file.path(OUTPUT_DIR, "merged_all.csv"))
 sop <- read.csv(file.path(DATA_DIR, "metadata/IMPC_SOP.csv"))
 
 valid_mouse_strains <- c("C57BL", "B6J", "C3H", "129SV")
