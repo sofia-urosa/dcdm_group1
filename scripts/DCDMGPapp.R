@@ -1,9 +1,9 @@
 #To Do List
 # - (1) DONE Add the ability to select a particular knockout mouse and visualize the statistical scores of all phenotypes tested.
-# - (2) DONE Add different point shapes or colors for phenotypes significantly impacted.
+# - (2) DONE Add different point shapes or colors for phenotype significantly impacted.
 # - (3) DONE Visualise the statistical scores of all knockout mice for a selected phenotype.
-# - (4) Visualise clusters of genes with similar phenotype scores (PCA)
-# - (5) DONE Create separate tabs for each visualation (Tab 1: Gene vs Phenotypes, Tab 2: Phenotype vs Genes, Tab 3: Gene Clusters)
+# - (4) DONE Visualise clusters of genes with similar phenotype scores (PCA)
+# - (5) DONE Create separate tabs for each visualisation (Tab 1: Gene vs Phenotypes, Tab 2: Phenotype vs Genes, Tab 3: Gene Clusters)
 
 
 library(shiny)
@@ -14,7 +14,6 @@ library(tidyr)
 library(DT)
 library(heatmaply)
 library(viridis)
-library(shinythemes)
 library(bslib)
 
 # ==========================================================================
@@ -50,7 +49,7 @@ max_log_pvalue <- dat %>%
 # ====================== USER INTERFACE ======================
 
 ui <- fluidPage(
-  titlePanel("Group 1: IMPC Gene-Phenotype Explorer"), 
+  titlePanel("IMPC Gene-Phenotype Explorer"), 
   theme = bs_theme(preset = "zephyr"), 
   tabsetPanel(
     
@@ -138,7 +137,7 @@ server <- function(input, output) {
           guides(fill = guide_legend(reverse = TRUE)) +
           geom_vline(xintercept = 1.301, linetype = "longdash") +
           ggtitle(paste(top_n, "Most Significant Phenotypes for", input$gene_selection, "Knockout")) +
-          labs(x = "Parameters", y = "Negative log10 p-value", subtitle = "Dotted line = p>0.05") +
+          labs(x = "Negative log10 p-value", y = "Parameters", subtitle = "Dotted line = p>0.05") +
           theme_bw() +
           theme(plot.subtitle = element_text(size = 10, face = "italic"))
     })
