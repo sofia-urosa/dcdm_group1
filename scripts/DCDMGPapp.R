@@ -12,6 +12,10 @@ library (readr)
 library (dplyr)
 library(tidyr)
 library(DT)
+library(heatmaply)
+library(viridis)
+library(shinythemes)
+library(bslib)
 
 # ==========================================================================
 
@@ -35,11 +39,19 @@ gene_symbol_names <- sort(unique(dat$gene_symbol))
 #Creates a vector containing the parameter_name names, removes the duplicates and sorts in alphabetical order.
 parameter_name_names <- sort(unique(dat$parameter_name))
 
+#Calculates the maximum -log p-value, needed for the heatmap.
+max_log_pvalue <- dat %>%
+  mutate(negp = -log10(pvalue)) %>%
+  filter(is.finite(negp)) %>%
+  pull(negp) %>%
+  max(na.rm = TRUE)
+
 
 # ====================== USER INTERFACE ======================
 
 ui <- fluidPage(
-  titlePanel("IMPC Gene-Phenotype Explorer"),                     # Application title
+  titlePanel("Group 1: IMPC Gene-Phenotype Explorer"), 
+  theme = bs_theme(preset = "zephyr"), 
   tabsetPanel(
     
     #========= Tab 1: Search by Gene ========= #
@@ -79,9 +91,19 @@ ui <- fluidPage(
             )
           )
         )
+      ),
+    
+    
+    # ========== Tab 3: Heatmap =============== #
+    tabPanel("Cluster Heatmap",
+           tabsetPanel(
+             tabPanel("Heatmap", plotlyOutput("Heatmap", height = 1500, width = 1500)),
+             tabPanel("Table", dataTableOutput("heatmap_table"))
+          )
+        )
+       )
       )
-    )
-  )
+  
 
 # ====================== SERVER LOGIC ======================
 
@@ -160,9 +182,31 @@ server <- function(input, output) {
       theme_bw() +
       theme(plot.subtitle = element_text(size = 10, face = "italic"))
   })
+
+  # ========== Tab 3 Data Prep ============ #
+  heatmap_react <- reactive({
+    heatmap_data <- dat %>%
+      mutate(neg_log_pvalue = -log10(pvalue), .after = pvalue) %>%
+      mutate(Significance = if_else(neg_log_pvalue > 1.301, "Significant", "Not Significant"), .after = neg_log_pvalue) %>%
+      group_by(gene_symbol, parameter_name) %>%
+      slice_min(pvalue, n = 1, with_ties = FALSE) %>%
+      ungroup() %>%
+      mutate(neg_log_pvalue = ifelse(is.infinite(neg_log_pvalue), max_log_pvalue, neg_log_pvalue)) %>%
+      select(gene_symbol, parameter_name, neg_log_pvalue) %>%
+      pivot_wider(names_from = parameter_name, values_from = neg_log_pvalue, values_fill = 0)
+  })
+  
+  output$Heatmap <- renderPlotly({
+    heatmap_react() %>%
+    tibble::column_to_rownames("gene_symbol") %>%
+    as.matrix() %>%
+    heatmaply_cor(colors = viridis)
+  })
+  
+  output$heatmap_table <- renderDataTable(heatmap_react())
   
   }
-
+  
 
 # Run the application 
 shinyApp(ui = ui, server = server)
