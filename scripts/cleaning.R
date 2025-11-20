@@ -264,6 +264,7 @@ rn_disease_info <- disease_info %>%
   )
 
 c_params <- rn_params %>% trim_whitespace() %>% std_na() %>%
+  mutate(parameter_name = tolower(parameter_name)) %>%
   distinct(impc_orig_id, parameter_id, .keep_all = TRUE)
 
 c_procedure <- rn_procedure %>% trim_whitespace() %>% std_na() %>%

@@ -3,6 +3,14 @@
 .Rproj.user/
 
 originals/
+outputs/merged_all.csv
+outputs/clean*
+outputs/qc*
+lists/
+
+outputs/csv_shards/
+outputs/logs/
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
