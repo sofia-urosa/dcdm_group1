@@ -31,18 +31,18 @@ DATA_DIR <- opts$input_dir
 merge_data = read_csv(file.path(DATA_DIR, "outputs/clean_data.csv"))
 
 # 62316 rows & 10 columns
-glimpse(merge_data)
-head(merge_data)
-class(merge_data)
-dim(merge_data)
-colnames(merge_data)
+#glimpse(merge_data)
+#head(merge_data)
+#class(merge_data)
+#dim(merge_data)
+#colnames(merge_data)
 #view(merge_data)
 
 # Lists all the distinct parameters within the csv
 unique_param = unique(merge_data$parameter_name)
-length(unique(merge_data$parameter_name))
-head(unique((merge_data$parameter_name)))
-head(unique(merge_data$parameter_name), 149)
+#length(unique(merge_data$parameter_name))
+#head(unique((merge_data$parameter_name)))
+#head(unique(merge_data$parameter_name), 149)
 #view(unique_param)
 
 # Frequency of each parameter
@@ -50,7 +50,7 @@ head(unique(merge_data$parameter_name), 149)
 param_freq = merge_data %>%
   count(parameter_name, sort = TRUE)
 
-print(param_freq, n = 149)
+#print(param_freq, n = 149)
 
 #view(param_freq)
 
@@ -129,8 +129,8 @@ merge_data <- merge_data %>%
 
 
 
-colnames(merge_data)
-table(merge_data$parameter_group)
+#colnames(merge_data)
+#table(merge_data$parameter_group)
 #view(merge_data)
 
 
@@ -144,14 +144,12 @@ merge_data$parameter_id = toupper(merge_data$parameter_id)
 
 merge_data$gene_accession_id = toupper(merge_data$gene_accession_id)
 #view(merge_data$gene_accession_id)
-table(merge_data$gene_accession_id)
+#table(merge_data$gene_accession_id)
 
 # Check if any value in "gene_accession_id" & "parameter_id" contains any lowercase letters
 
 any_lowercase_present = any(grepl("[a-z]", merge_data$gene_accession_id)) |
-  any(grepl("[a-z]", merge_data$parameter_id)) |
-  any(grepl("[a-z]", merge_data$mouse_life_stage))
-
+  any(grepl("[a-z]", merge_data$parameter_id))
 
 if (any_lowercase_present) {
   print("At least one lowercase letter is present in gene_accession_id or parameter_id or Mouse_life_stage")
@@ -162,8 +160,8 @@ if (any_lowercase_present) {
 
 #view(merge_data)
 
-tail(merge_data)
-head(merge_data)
+#tail(merge_data)
+#head(merge_data)
 
 
 # Detecting unique mouse strains 
@@ -178,7 +176,7 @@ unique_gene_symbol = unique(merge_data$gene_symbol)
 
 # Listing unique parameter_id
 unique_parameter_id = unique(merge_data$parameter_id)
-length(unique_parameter_id)
+#length(unique_parameter_id)
 unique_parameter_id_df = data.frame(parameter_id = unique_parameter_id)
 #view(unique_parameter_id_df)
 
@@ -190,6 +188,7 @@ parameter_group <- merge_data %>%
   rename(group_name = parameter_group)
 
 write.csv(parameter_group, file.path(DATA_DIR, "/outputs/parameter_group.csv"), row.names = FALSE)
+print("Created parameter_group.csv")
 
 #parameter_group_map
 parameter_group_map <- merge_data %>% 
@@ -197,3 +196,4 @@ parameter_group_map <- merge_data %>%
   rename(group_name = parameter_group)
 
 write.csv(parameter_group_map, file.path(DATA_DIR, "/outputs/parameter_group_map.csv"), row.names = FALSE)
+print("Created parameter_group_map.csv")
