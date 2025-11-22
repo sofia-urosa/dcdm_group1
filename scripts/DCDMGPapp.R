@@ -27,9 +27,29 @@ if (!file.exists(file_path)) {
 # If the check passes, read the file
 dat <- readr::read_csv(file_path)
 
-#Creates sorted, unique lists for the SelectInput drop down menus in the UI
+special_genes <- c("Parp11", "Plcb2", "Prpf31", "Pabpc4l")
+
 gene_symbol_names <- sort(unique(dat$gene_symbol))
+
+# move special genes to top
+gene_symbol_names <- c(
+  special_genes[special_genes %in% gene_symbol_names],
+  gene_symbol_names[!gene_symbol_names %in% special_genes]
+)
+
+# create HTML labels
+gene_choices <- setNames(
+  gene_symbol_names,
+  ifelse(gene_symbol_names %in% special_genes,
+         paste0("<span class='special-option' style='color:#FF8C00; font-weight:bold;'>",
+                gene_symbol_names,
+                "</span>"),
+         gene_symbol_names)
+)
+
 parameter_name_names <- sort(unique(dat$parameter_name))
+
+parameter_id_name <- sort(unique(dat$parameter_id))
 
 #Calculates the universal maximum -log p-value, used to cap infinite values in the heatmap.
 max_log_pvalue <- dat %>%
@@ -40,6 +60,13 @@ max_log_pvalue <- dat %>%
 
 
 # ====================== USER INTERFACE ======================
+tags$style(HTML("
+  .special-option {
+    padding-left: 10px !important;
+    display: inline-block;
+    width: 100%;
+  }
+"))
 
 ui <- fluidPage(
   titlePanel(h1("IMPC Gene-Phenotype Explorer", align = "center")),
@@ -48,24 +75,38 @@ ui <- fluidPage(
     
     #========= Tab 1: Search by Gene ========= #
     tabPanel("Search by Gene",
-                       
-      sidebarLayout( #Input on the left and plot outputted on the right.
-                         
-        sidebarPanel(
-          selectInput("gene_selection",
-            "Select a gene for your knockout mouse!",
-            choices = gene_symbol_names,
-            selected = gene_symbol_names[1])
-          ),
-        
-        mainPanel(
-          tabsetPanel( #Nested tabs for Plot and table output
-            tabPanel("Plot", plotOutput("tab1_plot")), 
-              tabPanel("Table", dataTableOutput("tab1_table"))
-            )
-          )
-        )
-      ),
+             sidebarLayout(
+               
+               sidebarPanel(
+                 selectizeInput(
+                   "gene_selection",
+                   "Select a gene for your knockout mouse!",
+                   choices = gene_choices,
+                   selected = gene_symbol_names[1],
+                   options = list(
+                     render = I("
+          {
+            item: function(data, escape) {
+              return '<div style=\"padding-left:12px; font-weight:600;\">' + data.label + '</div>';
+            },
+            option: function(data, escape) {
+              return '<div style=\"padding-left:12px; font-weight:600;\">' + data.label + '</div>';
+            }
+          }
+          ")
+                   )
+                 )
+               ),
+               
+               mainPanel(
+                 tabsetPanel(
+                   tabPanel("Plot", plotOutput("tab1_plot")),
+                   tabPanel("Table", dataTableOutput("tab1_table"))
+                 )
+               )
+               
+             ) 
+    ), 
     
     #========= Tab 2: Search by Phenotype ========= #
     tabPanel("Search by Phenotype",
@@ -228,13 +269,13 @@ server <- function(input, output) {
       #Replace infinite values with the maximum finite value, as calculated during global data prep.
       mutate(neg_log_pvalue = ifelse(is.infinite(neg_log_pvalue), max_log_pvalue, neg_log_pvalue)) %>%
       mutate(Significance = if_else(neg_log_pvalue > 1.301, "Significant", "Not Significant"), .after = neg_log_pvalue) %>%
-      group_by(gene_symbol, parameter_name) %>%
+      group_by(gene_symbol, parameter_id) %>%
       slice_min(pvalue, n = 1, with_ties = FALSE) %>%
       ungroup() %>%
-      select(gene_symbol, parameter_name, neg_log_pvalue) %>% # Keeps only these 3 columns.
+      select(gene_symbol, parameter_id, neg_log_pvalue)%>% # Keeps only these 3 columns.
       
       #Reshapes the long data into a wide Gene x Parameter matrix
-      pivot_wider(names_from = parameter_name, values_from = neg_log_pvalue, values_fill = 0) 
+      pivot_wider(names_from = parameter_id, values_from = neg_log_pvalue)
     
     # Calculate variance to select most informative genes and phenotypes
     mat <- full_matrix %>%
