@@ -15,6 +15,7 @@ library(DT)        # Interactive tables
 library(heatmaply) # Interactive heatmap
 library(bslib)     # Themes
 library (viridis)  # Colour scheme for heatmap
+library(ggrepel)
 
 # ========================== GLOBAL DATA SETUP =============================== #
 
@@ -143,7 +144,7 @@ ui <- fluidPage(
                  hr(),
                  h4("Matrix Size Controls"),
                  sliderInput("n_genes",
-                             "Number of genes to display:",
+                             "Number of genes to visualize:",
                              min = 10,
                              max = 100,
                              value = 50,  # 50 is good balance
@@ -154,6 +155,20 @@ ui <- fluidPage(
                              max = 100,
                              value = 50,
                              step = 5),
+                 checkboxInput(
+                   "use_top_variance",
+                   "Use top-variance gene filtering?",
+                   value = TRUE
+                 ),
+                 
+                 numericInput(
+                   "top_variance_n",
+                   "Number of top-variance genes:",
+                   value = 50,
+                   min = 10,
+                   max = 200,
+                   step = 5
+                 ),
                  hr(),
                  helpText("Adjust sliders to control cluster number and matrix size.",
                           "Fewer genes/phenotypes = faster rendering.")
@@ -171,7 +186,7 @@ ui <- fluidPage(
 # ====================== SERVER LOGIC ======================
 
 # Define server logic required to draw a histogram
-server <- function(input, output) {
+server <- function(input, output,session) {
   
   # ========= Tab 1 Data Prep =========== #
 
@@ -262,46 +277,64 @@ server <- function(input, output) {
 
   # ========== Tab 3 Data Prep ============ #
   heatmap_react <- reactive({
-    # Create the full matrix first
+    
     full_matrix <- dat %>%
-      mutate(neg_log_pvalue = -log10(pvalue), .after = pvalue) %>%
-      
-      #Replace infinite values with the maximum finite value, as calculated during global data prep.
-      mutate(neg_log_pvalue = ifelse(is.infinite(neg_log_pvalue), max_log_pvalue, neg_log_pvalue)) %>%
-      mutate(Significance = if_else(neg_log_pvalue > 1.301, "Significant", "Not Significant"), .after = neg_log_pvalue) %>%
+      mutate(neg_log_pvalue = -log10(pvalue)) %>%
+      mutate(neg_log_pvalue = ifelse(is.infinite(neg_log_pvalue), 
+                                     max_log_pvalue, 
+                                     neg_log_pvalue)) %>%
       group_by(gene_symbol, parameter_id) %>%
       slice_min(pvalue, n = 1, with_ties = FALSE) %>%
       ungroup() %>%
-      select(gene_symbol, parameter_id, neg_log_pvalue)%>% # Keeps only these 3 columns.
-      
-      #Reshapes the long data into a wide Gene x Parameter matrix
+      select(gene_symbol, parameter_id, neg_log_pvalue) %>%
       pivot_wider(names_from = parameter_id, values_from = neg_log_pvalue)
     
-    # Calculate variance to select most informative genes and phenotypes
     mat <- full_matrix %>%
       tibble::column_to_rownames("gene_symbol") %>%
       as.matrix()
     
-    # Select top N genes with highest variance across phenotypes
-    # High variance = more interesting for clustering
-    gene_variance <- apply(mat, 1, var)
-    top_genes <- names(sort(gene_variance, decreasing = TRUE)[1:min(input$n_genes, nrow(mat))])
+
+    if (input$use_top_variance) {
+      
+      gene_variance <- apply(mat, 1, var)
+      
+      if (input$use_top_variance) {
+        # ensure top_variance_n >= n_genes (observe() enforces this too)
+        n_top <- max(input$top_variance_n, input$n_genes)
+        
+        top_genes <- names(sort(gene_variance, decreasing = TRUE)[1:n_top])
+      } else {
+        # old behaviour: use n_genes input
+        top_genes <- names(sort(gene_variance, decreasing = TRUE)[1:min(input$n_genes, nrow(mat))])
+      }
+      
+      #always include the 4 coursework genes
+      top_genes <- union(top_genes, special_genes[special_genes %in% rownames(mat)])
+      
+    } else {
+      
+      # use slider selection
+      top_genes <- rownames(mat)[1:min(input$n_genes, nrow(mat))]
+      
+      # always include coursework genes
+      top_genes <- union(top_genes, special_genes[special_genes %in% rownames(mat)])
+    }
     
-    # Select top N phenotypes with highest variance across genes
-    pheno_variance <- apply(mat, 2, var)
-    top_phenotypes <- names(sort(pheno_variance, decreasing = TRUE)[1:min(input$n_phenotypes, ncol(mat))])
+    #select Phenotypes 
+    pheno_var <- apply(mat, 2, var)
+    top_phenotypes <- names(sort(pheno_var, decreasing = TRUE))[1:min(input$n_phenotypes, ncol(mat))]
     
-    # Filter to selected genes and phenotypes
+    #Final filtered matrix
     full_matrix %>%
       filter(gene_symbol %in% top_genes) %>%
       select(gene_symbol, all_of(top_phenotypes))
   })
   
   # ======== Tab 3 Data Visualisation ======== #
-  
+
   matrix_table <- reactive({
     heatmap_react() %>%
-      tibble::column_to_rownames("gene_symbol") %>% # Converts gene_symbol column into the row names.
+      tibble::column_to_rownames("gene_symbol") %>%
       as.matrix()
   })
   
@@ -340,33 +373,74 @@ server <- function(input, output) {
   pca_plot_data <- reactive ({
     pca_res <- pca_coordinates()
     km <- kmean_results()
-    data.frame(
+    
+    df <- data.frame(
+      gene_symbol = rownames(pca_res$x),
       cluster = as.factor(km$cluster),
       PC1 = pca_res$x[, 1],
       PC2 = pca_res$x[, 2]
     )
+    
+    df$highlight <- ifelse(df$gene_symbol %in% special_genes, "yes", "no")
+    df
   })
   
   output$pca_plot <- renderPlot({
     pca_res <- pca_coordinates()
-    var_explained <- summary(pca_res)$importance[2, 1:2] * 100  # Get % variance
+    var_explained <- summary(pca_res)$importance[2, 1:2] * 100
     plot_data <- pca_plot_data()
     
-    ggplot(plot_data, aes(x = PC1, y = PC2, color = cluster)) +
-      geom_point(size = 3, alpha = 0.7) +
-      scale_color_viridis_d() +  # Matches heatmap colors
-      labs(title = paste("PCA Plot: Gene Clusters (k =", input$n_clusters, ")"),
-           subtitle = paste0("PC1 explains ", round(var_explained[1], 1), 
-                             "% variance, PC2 explains ", round(var_explained[2], 1), "% variance"),
-           x = paste0("PC1 (", round(var_explained[1], 1), "%)"),
-           y = paste0("PC2 (", round(var_explained[2], 1), "%)")) +
+    special_df <- plot_data %>% 
+      filter(gene_symbol %in% special_genes)
+    
+    ggplot(plot_data, aes(PC1, PC2)) +
+      geom_point(aes(color = cluster), alpha = 0.6, size = 3) +
+      
+      # Circles around the special 4 genes
+      geom_point(data = special_df,
+                 shape = 21, stroke = 1.5,
+                 color = "black", fill = NA, size = 6) +
+      
+      # Labels only for the special genes
+      ggrepel::geom_text_repel(
+        data = special_df,
+        aes(label = gene_symbol),
+        color = "black",
+        size = 5,
+        fontface = "bold",
+        max.overlaps = Inf
+      ) +
+      
+      scale_color_viridis_d() +
+      labs(
+        title = paste("PCA Plot: Gene Clusters (k =", input$n_clusters, ")"),
+        subtitle = paste0(
+          "PC1 explains ", round(var_explained[1], 1), "% variance, ",
+          "PC2 explains ", round(var_explained[2], 1), "% variance"
+        ),
+        x = paste0("PC1 (", round(var_explained[1], 1), "%)"),
+        y = paste0("PC2 (", round(var_explained[2], 1), "%)")
+      ) +
       theme_minimal(base_size = 14) +
-      theme(plot.title = element_text(face = "bold"),
-            plot.subtitle = element_text(face = "italic", color = "gray40"))
+      theme(
+        plot.title = element_text(face = "bold"),
+        plot.subtitle = element_text(face = "italic", color = "gray40")
+      )
+  })
+  
+  observe({
+    if (isTRUE(input$use_top_variance)) {
+      if (input$top_variance_n < input$n_genes) {
+        updateNumericInput(
+          session,
+          "top_variance_n",
+          value = input$n_genes
+        )
+      }
+    }
   })
   
   }
-
 
   
 
