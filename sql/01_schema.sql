@@ -77,8 +77,12 @@ CREATE TABLE IF NOT EXISTS `analysis` (
   mouse_strain       VARCHAR(16),
   mouse_life_stage   VARCHAR(32),
   parameter_id       VARCHAR(64),
-  pvalue             DECIMAL(10,7),
-  FOREIGN KEY (parameter_id) REFERENCES parameters(parameter_id)
+  pvalue             DOUBLE
+  -- FOREIGN KEY (parameter_id) REFERENCES parameters(parameter_id)
+
+  -- Not all parameter_ids present in the analysis data had corresponding metadata 
+  -- rows in the provided IMPC parameter file, so enforcing a foreign key constraint 
+  -- would incorrectly reject valid experimental results
 ) ENGINE=InnoDB;
 
 -- IX. View of min pvalue per gene,strain,stage,parameter. 
@@ -180,19 +184,29 @@ IGNORE 1 ROWS
 
 LOAD DATA LOCAL INFILE '/Users/sof/Documents/Msc/DCDM/dcdm_group1/outputs/clean_data.csv'
 INTO TABLE analysis
-FIELDS TERMINATED BY ',' 
-OPTIONALLY ENCLOSED BY '"'
+FIELDS TERMINATED BY ','
+ENCLOSED BY '"'
+ESCAPED BY '\\'
 LINES TERMINATED BY '\n'
 IGNORE 1 ROWS
-(@gene, @symbol, @strain, @stage, @param_id, @param_name, @pval, @analysis)
-SET
-    analysis_id        = @analysis,
-    gene_accession_id  = @gene,
-    gene_symbol        = @symbol,
-    mouse_strain       = @strain,
-    mouse_life_stage   = @stage,
-    parameter_id       = @param_id,
-    pvalue             = @pval;
+(
+    @gene,
+    @symbol,
+    @strain,
+    @stage,
+    @param_id,
+    @skip1,
+    @pval,
+    @analysis_id
+)
+SET 
+    gene_accession_id = @gene,
+    gene_symbol       = @symbol,
+    mouse_strain      = @strain,
+    mouse_life_stage  = @stage,
+    parameter_id      = @param_id,
+    pvalue            = CAST(@pval AS DOUBLE),
+    analysis_id       = @analysis_id;
 
 -- Indexing columns that will be used to join/filter and that are not primary
 -- or foreign keys. 
