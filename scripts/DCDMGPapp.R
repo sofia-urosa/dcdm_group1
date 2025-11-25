@@ -156,6 +156,12 @@ ui <- fluidPage(
                              value = 50,
                              step = 5),
                  checkboxInput(
+                   "use_significance_matrix",
+                   "Use significance-tier matrix?",
+                   value = FALSE
+                 ),
+                 helpText("When checked: 1 = significant (p<0.05), 0.5 = moderate (p<0.1), 0 = not significant"),
+                 checkboxInput(
                    "use_top_variance",
                    "Use top-variance gene filtering?",
                    value = TRUE
@@ -171,8 +177,16 @@ ui <- fluidPage(
                  ),
                  hr(),
                  helpText("Adjust sliders to control cluster number and matrix size.",
-                          "Fewer genes/phenotypes = faster rendering.")
+                          "Fewer genes/phenotypes = faster rendering."),
+                 hr(),
+                 h4("PCA Controls"),
+                 checkboxInput(
+                   "remove_outliers",
+                   "Remove outliers from PCA",
+                   value = FALSE
+                 )
                ),
+               
                mainPanel(
                  width = 9,
                  tabsetPanel(
@@ -293,20 +307,15 @@ server <- function(input, output,session) {
       tibble::column_to_rownames("gene_symbol") %>%
       as.matrix()
     
-
+    # DO VARIANCE FILTERING FIRST (before transformation)
     if (input$use_top_variance) {
       
       gene_variance <- apply(mat, 1, var)
       
-      if (input$use_top_variance) {
-        # ensure top_variance_n >= n_genes (observe() enforces this too)
-        n_top <- max(input$top_variance_n, input$n_genes)
-        
-        top_genes <- names(sort(gene_variance, decreasing = TRUE)[1:n_top])
-      } else {
-        # old behaviour: use n_genes input
-        top_genes <- names(sort(gene_variance, decreasing = TRUE)[1:min(input$n_genes, nrow(mat))])
-      }
+      # ensure top_variance_n >= n_genes (observe() enforces this too)
+      n_top <- max(input$top_variance_n, input$n_genes)
+      
+      top_genes <- names(sort(gene_variance, decreasing = TRUE)[1:n_top])
       
       #always include the 4 coursework genes
       top_genes <- union(top_genes, special_genes[special_genes %in% rownames(mat)])
@@ -324,19 +333,29 @@ server <- function(input, output,session) {
     pheno_var <- apply(mat, 2, var)
     top_phenotypes <- names(sort(pheno_var, decreasing = TRUE))[1:min(input$n_phenotypes, ncol(mat))]
     
-    #Final filtered matrix
-    full_matrix %>%
+    #Final filtered matrix (still as data frame with gene_symbol column)
+    filtered_df <- full_matrix %>%
       filter(gene_symbol %in% top_genes) %>%
       select(gene_symbol, all_of(top_phenotypes))
+    
+    filtered_df
+  })
+  
+  matrix_table <- reactive({
+    mat <- heatmap_react() %>%
+      tibble::column_to_rownames("gene_symbol") %>%
+      as.matrix()
+    
+    # APPLY SIGNIFICANCE TRANSFORMATION HERE (after filtering)
+    if (input$use_significance_matrix) {
+      mat <- ifelse(mat > -log10(0.05), 1,
+                    ifelse(mat > -log10(0.1), 0.5, 0))
+    }
+    
+    mat
   })
   
   # ======== Tab 3 Data Visualisation ======== #
-
-  matrix_table <- reactive({
-    heatmap_react() %>%
-      tibble::column_to_rownames("gene_symbol") %>%
-      as.matrix()
-  })
   
   output$Heatmap <- renderPlotly({
     mat <- matrix_table()
@@ -370,7 +389,7 @@ server <- function(input, output,session) {
     prcomp(matrix_table(), center = TRUE, scale. = TRUE)
   })
   
-  pca_plot_data <- reactive ({
+  pca_plot_data <- reactive({
     pca_res <- pca_coordinates()
     km <- kmean_results()
     
@@ -380,6 +399,25 @@ server <- function(input, output,session) {
       PC1 = pca_res$x[, 1],
       PC2 = pca_res$x[, 2]
     )
+    
+    # Remove outliers if requested
+    if (input$remove_outliers) {
+      q1_pc1 <- quantile(df$PC1, 0.25)
+      q3_pc1 <- quantile(df$PC1, 0.75)
+      iqr_pc1 <- q3_pc1 - q1_pc1
+      
+      q1_pc2 <- quantile(df$PC2, 0.25)
+      q3_pc2 <- quantile(df$PC2, 0.75)
+      iqr_pc2 <- q3_pc2 - q1_pc2
+      
+      # Keep points within 1.5*IQR or special genes
+      df <- df %>%
+        filter(
+          (PC1 >= q1_pc1 - 1.5*iqr_pc1 & PC1 <= q3_pc1 + 1.5*iqr_pc1 &
+             PC2 >= q1_pc2 - 1.5*iqr_pc2 & PC2 <= q3_pc2 + 1.5*iqr_pc2) |
+            gene_symbol %in% special_genes
+        )
+    }
     
     df$highlight <- ifelse(df$gene_symbol %in% special_genes, "yes", "no")
     df
