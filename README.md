@@ -18,4 +18,13 @@ renv::init()
 --
 ```
 
-## File structure
+## Folder structure
+
+This project assumes the following folder structure:
+
+  • originals/ contains the original data. originals/data contains the key-value CSVs.  
+	•	metadata/ contains all SOP files and metadata tables required by the pipeline.
+	•	outputs/ is where all logs and generated outputs will be written.
+
+The pipeline will not run correctly unless these directories exist in this layout.
+
