@@ -19,13 +19,13 @@ library(ggrepel)
 
 # ========================== GLOBAL DATA SETUP =============================== #
 
-# Define the file path as a string and checks it is there.
-file_path <- "/Users/sof/Documents/Msc/DCDM/dcdm_group1/outputs/clean_data.csv"
-if (!file.exists(file_path)) {
-  stop("Error: File not found at the specified path.")
-}
+# Define the file path as a string 
 
-# If the check passes, read the file
+######
+# TO THE ASSESSOR, YOU WILL NEED TO CHANGE THE FILE PATH TO WHERE THE CLEAN_DATA IS IN YOUR LOCAL DIRECTORY.
+######
+file_path <- "/Users/ryadl/Desktop/App_Bioinf/DCDM_GP/data/UpToDate_Data/DCDM_Files/clean/clean_data.csv"
+
 dat <- readr::read_csv(file_path)
 
 special_genes <- c("Parp11", "Plcb2", "Prpf31", "Pabpc4l")
@@ -79,6 +79,7 @@ ui <- fluidPage(
              sidebarLayout(
                
                sidebarPanel(
+                 fileInput("user_csv", "Choose CSV File", accept = ".csv"),
                  selectizeInput(
                    "gene_selection",
                    "Select a gene for your knockout mouse!",
@@ -202,10 +203,43 @@ ui <- fluidPage(
 # Define server logic required to draw a histogram
 server <- function(input, output,session) {
   
+  current_data <- reactive({
+    # 1. If a user has uploaded a file, read and use it
+    if (!is.null(input$user_csv)) {
+      return(readr::read_csv(input$user_csv$datapath))
+    }
+    # 2. Otherwise, use the default 'dat' loaded at the top
+    return(dat)
+  })
+  
+  # --- Watch for File Uploads & Update Dropdowns ---
+  observeEvent(input$user_csv, {
+    
+    # 1. Read the uploaded file
+    req(input$user_csv)
+    new_data <- readr::read_csv(input$user_csv$datapath)
+    
+    # 2. Create the new lists
+    new_genes <- sort(unique(new_data$gene_symbol))
+    new_params <- sort(unique(new_data$parameter_name))
+    
+    # 3. Update the Gene Dropdown
+    # (We have to recreate the special highlighting logic here if you want it!)
+    updateSelectizeInput(session, "gene_selection",
+                         choices = new_genes,
+                         selected = new_genes[1],
+                         server = TRUE)
+    
+    # 4. Update the Phenotype Dropdown
+    updateSelectInput(session, "phenotype_selection",
+                      choices = new_params,
+                      selected = new_params[1])
+  
+  })
   # ========= Tab 1 Data Prep =========== #
 
   tab1_data <- reactive({
-    tab1 <- dat %>%
+    tab1 <-  current_data()%>%
       filter(gene_symbol == input$gene_selection) %>% #Filter to the user selected gene
       mutate(neg_log_pvalue = -log10(pvalue), .after = pvalue) %>% # Log transformation for visual scaling
       #Creates a new column called Significance, where 1.301 = -log(0.05)
@@ -252,7 +286,7 @@ server <- function(input, output,session) {
   # ========= Tab 2 Data Prep ==========#
       
   tab2_data <- reactive({
-    tab2 <- dat %>%
+    tab2 <-  current_data()%>%
       filter(parameter_name == input$phenotype_selection) %>%
       mutate(neg_log_pvalue = -log10(pvalue), .after = pvalue) %>%
       mutate(Significance = if_else(neg_log_pvalue > 1.301, "Significant", "Not Significant"), .after = neg_log_pvalue) %>%
@@ -292,7 +326,7 @@ server <- function(input, output,session) {
   # ========== Tab 3 Data Prep ============ #
   heatmap_react <- reactive({
     
-    full_matrix <- dat %>%
+    full_matrix <-  current_data()%>%
       mutate(neg_log_pvalue = -log10(pvalue)) %>%
       mutate(neg_log_pvalue = ifelse(is.infinite(neg_log_pvalue), 
                                      max_log_pvalue, 
