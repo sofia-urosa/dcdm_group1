@@ -91,13 +91,14 @@ merge_data <- merge_data %>%
     
     # Images group
     (str_detect(parameter_name, regex(
-        "morphology|retina|retinal|eye|optic|lens|vitreous|
+      "morphology|retina|retinal|eye|optic|lens|vitreous|
          vessels|hyaloid|pattern|shape|thickness|color|texture|appearance",
-        ignore_case = TRUE)) |
-        str_starts(parameter_id, "CCP_XRY") |
-        str_starts(parameter_id, "JAX_XRY") |
-        str_starts(parameter_id, "TCP_XRY") |
-        str_starts(parameter_id, "IMPC_EYE")
+      ignore_case = TRUE)) |
+       str_starts(parameter_id, "CCP_XRY") |
+       str_starts(parameter_id, "JAX_XRY") |
+       str_starts(parameter_id, "TCP_XRY") |
+       str_starts(parameter_id, "IMPC_EYE")|
+       str_starts(parameter_id, "IMPC_XRY")
     ) ~ "Images",
     
     # Brain group
