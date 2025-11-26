@@ -19,6 +19,9 @@ library(ggrepel)
 
 # ========================== GLOBAL DATA SETUP =============================== #
 
+#Increases the max upload size to 10GB.
+options(shiny.maxRequestSize = 10 * 1024^3)
+
 # Define the file path as a string 
 
 ######
