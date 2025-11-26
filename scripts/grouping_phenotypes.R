@@ -28,7 +28,7 @@ if (is.null(opts$input_dir) ) {
 
 DATA_DIR <- opts$input_dir
 
-merge_data = read_csv(file.path(DATA_DIR, "outputs/clean_data.csv"))
+merge_data = read_csv(file.path(DATA_DIR, "outputs/clean_params.csv"))
 
 # 62316 rows & 10 columns
 #glimpse(merge_data)
@@ -143,21 +143,11 @@ merge_data$parameter_id = toupper(merge_data$parameter_id)
 
 # Gene accession ID needs to be capitalized 
 
-merge_data$gene_accession_id = toupper(merge_data$gene_accession_id)
+#merge_data$gene_accession_id = toupper(merge_data$gene_accession_id)
 #view(merge_data$gene_accession_id)
 #table(merge_data$gene_accession_id)
 
 # Check if any value in "gene_accession_id" & "parameter_id" contains any lowercase letters
-
-any_lowercase_present = any(grepl("[a-z]", merge_data$gene_accession_id)) |
-  any(grepl("[a-z]", merge_data$parameter_id))
-
-if (any_lowercase_present) {
-  print("At least one lowercase letter is present in gene_accession_id or parameter_id or Mouse_life_stage")
-} else {
-  print("No lowercase letters are present in either column")
-}
-
 
 #view(merge_data)
 
@@ -167,12 +157,12 @@ if (any_lowercase_present) {
 
 # Detecting unique mouse strains 
 
-unique_mouse_strain = unique(merge_data$mouse_strain)
+#unique_mouse_strain = unique(merge_data$mouse_strain)
 #view(unique_mouse_strain)
 
 # Detecting unique gene symbols
 
-unique_gene_symbol = unique(merge_data$gene_symbol)
+#unique_gene_symbol = unique(merge_data$gene_symbol)
 #view(unique_gene_symbol)
 
 # Listing unique parameter_id
