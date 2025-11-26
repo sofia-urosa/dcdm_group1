@@ -24,9 +24,6 @@ options(shiny.maxRequestSize = 10 * 1024^3)
 
 # Define the file path as a string 
 
-######
-# TO THE ASSESSOR, YOU WILL NEED TO CHANGE THE FILE PATH TO WHERE THE CLEAN_DATA IS IN YOUR LOCAL DIRECTORY.
-######
 file_path <- "../outputs/clean_data.csv"
 if (!file.exists(file_path)) {
   stop("Error: File not found at the specified path.")
