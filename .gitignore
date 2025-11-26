@@ -2,15 +2,20 @@
 .RData
 .Rproj.user/
 
-originals/
-outputs/merged_all.csv
-outputs/clean*
-outputs/qc*
-lists/
+originals/*
+!originals/.gitkeep
 
-outputs/csv_shards/
-outputs/logs/
+outputs/*
+!outputs/.gitkeep
 
+outputs/csv_shards/*
+!outputs/csv_shards/.gitkeep
+
+outputs/logs/*
+!outputs/logs/.gitkeep
+
+lists/*
+!lists/.gitkeep
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
