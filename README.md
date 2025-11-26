@@ -71,7 +71,8 @@ The **cleaning.R** script performs the following:
 
 ## Outputs files
 The following files will appear under outputs/:
-    • clean_data.csv
+    
+	• clean_data.csv
 	• clean_params.csv
 	• clean_procedure.csv
 	• clean_disease_info.csv
@@ -85,6 +86,26 @@ The following files will appear under outputs/:
 	• logs/cleaning_log.txt
 	
 	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
