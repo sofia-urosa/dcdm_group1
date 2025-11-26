@@ -24,7 +24,10 @@ library(ggrepel)
 ######
 # TO THE ASSESSOR, YOU WILL NEED TO CHANGE THE FILE PATH TO WHERE THE CLEAN_DATA IS IN YOUR LOCAL DIRECTORY.
 ######
-file_path <- "/Users/ryadl/Desktop/App_Bioinf/DCDM_GP/data/UpToDate_Data/DCDM_Files/clean/clean_data.csv"
+file_path <- "../outputs/clean_data.csv"
+if (!file.exists(file_path)) {
+  stop("Error: File not found at the specified path.")
+}
 
 dat <- readr::read_csv(file_path)
 

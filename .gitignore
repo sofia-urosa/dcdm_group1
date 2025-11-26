@@ -1,23 +1,27 @@
-# R / RStudio
 .Rhistory
 .RData
 .Rproj.user/
 
-# Ignore folder contents but keep .gitkeep
+!originals/
 originals/*
 !originals/.gitkeep
 
+!originals/data/
 originals/data/*
 !originals/data/.gitkeep
 
+!outputs/
 outputs/*
 !outputs/.gitkeep
 
+!outputs/csv_shards/
 outputs/csv_shards/*
 !outputs/csv_shards/.gitkeep
 
+!outputs/logs/
 outputs/logs/*
 !outputs/logs/.gitkeep
 
+!lists/
 lists/*
 !lists/.gitkeep
