@@ -28,3 +28,4 @@ This project assumes the following folder structure:
 
 The pipeline will not run correctly unless these directories exist in this layout.
 
+## How execute the pipeline 
