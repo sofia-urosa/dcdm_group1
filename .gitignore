@@ -17,6 +17,16 @@ outputs/logs/*
 lists/*
 !lists/.gitkeep
 
+outputs/logs/*
+!outputs/logs/.gitkeep
+
+originals/data/*
+!originals/data/.gitkeep
+
+outputs/csv_shards/*
+!outputs/csv_shards/.gitkeep
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
