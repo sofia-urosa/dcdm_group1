@@ -22,14 +22,16 @@ renv::init()
 
 The repository follows this structure:
 
+```bash
 metadata/              		# Original metadata files (parameters, procedures, diseases, SOP)
 raw/                   		# Raw IMPC files (not included in the repository)
 outputs/               		# All cleaned and generated outputs
-outputs/csv_shards/    		# Shards created during merge process
+outputs/csv_shards/    		# CSV shards created during merge process
 outputs/logs/          		# QC logs and SLURM logs
 scripts/               		# Data cleaning, grouping, merging, and dashboard scripts
 sql/                   		# SQL schema, views, dump files, and example queries
 sql/examples/          		# Query examples for collaborators
+```
 
 The pipeline will not run correctly unless these directories exist in this layout.
 
