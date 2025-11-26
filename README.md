@@ -69,10 +69,23 @@ The **cleaning.R** script performs the following:
     • qc_mouse_strain.csv
     • qc_sop_orthogonal.csv
 
+## Outputs files
+The following files will appear under outputs/:
+    • clean_data.csv
+	• clean_params.csv
+	• clean_procedure.csv
+	• clean_disease_info.csv
+	• parameter_procedure.csv
+	• dim_procedure.csv
+	• disease.csv
+	• gene_disease.csv
+	• qc_mouse_strain.csv
+	• qc_sop_data.csv
+	• qc_sop_orthogonal.csv
+	• logs/cleaning_log.txt
+	
+	
 
-    
-    
-    
 
 
 
