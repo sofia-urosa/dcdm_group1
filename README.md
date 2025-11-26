@@ -5,7 +5,7 @@ This repository includes all code used for the data-cleaning pipeline, database 
 
 ## Installation
 
-Use the package manager [rencv]([https://pip.pypa.io/en/stable/](https://rstudio.github.io/renv/)) to install the necessary R dependencies.
+Use the package manager [renv]([https://pip.pypa.io/en/stable/](https://rstudio.github.io/renv/)) to install the necessary R dependencies.
 
 ```R
 install.packages("renv")
@@ -20,11 +20,16 @@ renv::init()
 
 ## Folder structure
 
-This project assumes the following folder structure:
+The repository follows this structure:
 
-  • originals/ contains the original data. originals/data contains the key-value CSVs.  
-	•	metadata/ contains all SOP files and metadata tables required by the pipeline.
-	•	outputs/ is where all logs and generated outputs will be written.
+metadata/              		# Original metadata files (parameters, procedures, diseases, SOP)
+raw/                   		# Raw IMPC files (not included in the repository)
+outputs/               		# All cleaned and generated outputs
+outputs/csv_shards/    		# Shards created during merge process
+outputs/logs/          		# QC logs and SLURM logs
+scripts/               		# Data cleaning, grouping, merging, and dashboard scripts
+sql/                   		# SQL schema, views, dump files, and example queries
+sql/examples/          		# Query examples for collaborators
 
 The pipeline will not run correctly unless these directories exist in this layout.
 
