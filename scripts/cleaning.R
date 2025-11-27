@@ -72,6 +72,7 @@ valid_mouse_strains <- c("C57BL", "B6J", "C3H", "129SV")
 
 #fcn
 
+# Remove leading/trailing/between whitespace
 trim_whitespace <- function(df) {
   df %>% mutate(
     across(where(is.character), function(x) stringr::str_trim(x, side = "both"))
@@ -79,6 +80,7 @@ trim_whitespace <- function(df) {
     mutate(across(where(is.character), stringr::str_squish))
 }
 
+# Standardize NA-like
 std_na <- function(df) { 
   df %>%
     mutate(across(where(is.character), ~ {
@@ -90,6 +92,7 @@ std_na <- function(df) {
     }))
 }
 
+# Coerce "yes/no", "true/false", "t/f", "1/0" → logical
 coerce_bool <- function(df, cols) { 
   df %>%
     mutate(across(all_of(cols), ~ case_when(
@@ -98,6 +101,9 @@ coerce_bool <- function(df, cols) {
       TRUE ~ NA
     )))
 }
+
+# Apprx matching for controlled vocabulary 
+# also returns a QC table for audit
 
 check_chr <- function(df, col, good, max_dist = 2) {
   
@@ -125,6 +131,9 @@ check_chr <- function(df, col, good, max_dist = 2) {
   
   list(data = df, qc = qc)
 }
+
+#checking SOP: checks type, range, missing columns.
+#returns cleaned df + QC 
 
 validate_sop <- function(df_list,sop){
   if (is.data.frame(df_list)) df_list <- list(df = df_list)
@@ -160,6 +169,8 @@ validate_sop <- function(df_list,sop){
     
     for (i in 1:nrow(sop_subset)){
       
+      # Validate column-by-column
+      
       field <- sop_subset$dataField[i]
       dtype <- sop_subset$dataType[i]
       minV  <- sop_subset$minValue[i]
@@ -182,7 +193,7 @@ validate_sop <- function(df_list,sop){
         )
         next
       }
-      
+      # length checking
       if (dtype == "String"){
         len <- nchar(col)
         bad_idx <- which(len < minV | len > maxV)
@@ -263,6 +274,7 @@ rn_disease_info <- disease_info %>%
     gene_accession_id  = `Mouse MGI ID`
   )
 
+# Apply cleaning
 c_params <- rn_params %>% trim_whitespace() %>% std_na() %>%
   mutate(parameter_name = tolower(parameter_name)) %>%
   distinct(impc_orig_id, parameter_id, .keep_all = TRUE)
@@ -276,6 +288,8 @@ c_disease_info <- rn_disease_info %>%
   separate_rows(omim_id, sep = "\\|") %>% 
   std_na() %>%
   distinct(do_disease_id,do_disease_name,omim_id,gene_accession_id, .keep_all = TRUE)
+
+# SOP validation on metadata tables
 
 log("Running SOP validation for metadata...")
 orth_sop_compliant = validate_sop(
@@ -340,7 +354,7 @@ c_data <- data %>%
 qc_corrected_mouse_strain <- NULL
 qc_sop_compliant <- NULL
 
-log("Checkin SOP compliance...")
+log("Checking SOP compliance...")
 
 sop_compliant_data <- c_data %>%
   check_chr("mouse_strain", valid_mouse_strains, max_dist = 2) %>%

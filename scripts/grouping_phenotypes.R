@@ -31,28 +31,14 @@ DATA_DIR <- opts$input_dir
 merge_data = read_csv(file.path(DATA_DIR, "outputs/clean_params.csv"))
 
 # 62316 rows & 10 columns
-#glimpse(merge_data)
-#head(merge_data)
-#class(merge_data)
-#dim(merge_data)
-#colnames(merge_data)
-#view(merge_data)
 
 # Lists all the distinct parameters within the csv
 unique_param = unique(merge_data$parameter_name)
-#length(unique(merge_data$parameter_name))
-#head(unique((merge_data$parameter_name)))
-#head(unique(merge_data$parameter_name), 149)
-#view(unique_param)
 
 # Frequency of each parameter
 
 param_freq = merge_data %>%
   count(parameter_name, sort = TRUE)
-
-#print(param_freq, n = 149)
-
-#view(param_freq)
 
 # Remove any duplicates
 sum(duplicated(merge_data))
@@ -128,42 +114,7 @@ merge_data <- merge_data %>%
     TRUE ~ "Other"
   ))
 
-
-
-#colnames(merge_data)
-#table(merge_data$parameter_group)
-#view(merge_data)
-
-
-# Remember there is a lower case parameter ID which needs to be capitalized
-# 451 cells in the parameter_id column were lowercase 
-
 merge_data$parameter_id = toupper(merge_data$parameter_id)
-#view(merge_data$parameter_id)
-
-# Gene accession ID needs to be capitalized 
-
-#merge_data$gene_accession_id = toupper(merge_data$gene_accession_id)
-#view(merge_data$gene_accession_id)
-#table(merge_data$gene_accession_id)
-
-# Check if any value in "gene_accession_id" & "parameter_id" contains any lowercase letters
-
-#view(merge_data)
-
-#tail(merge_data)
-#head(merge_data)
-
-
-# Detecting unique mouse strains 
-
-#unique_mouse_strain = unique(merge_data$mouse_strain)
-#view(unique_mouse_strain)
-
-# Detecting unique gene symbols
-
-#unique_gene_symbol = unique(merge_data$gene_symbol)
-#view(unique_gene_symbol)
 
 # Listing unique parameter_id
 unique_parameter_id = unique(merge_data$parameter_id)
