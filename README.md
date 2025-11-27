@@ -14,9 +14,99 @@ renv::init()
 
 ## Usage
 
-```R
---
+Assuming `$PRJ_DIR` is the project's root directory and that the folder structure matches the layout described in this repository:
+
+To set `$PRJ_DIR`, do:
+
+```bash
+PRJ_DIR=[your project directory]
 ```
+---
+
+### Merging CSVs
+
+Generate the shard lists:
+
+```bash
+$PRJ_DIR/scripts/shard_list.sh
+```
+
+Submit the SLURM array job:
+
+```bash
+sbatch $PRJ_DIR/scripts/split_csv.slurm
+```
+split_csv.slurm submits 64 jobs to SLURM and assumes your raw CSVs are located in:
+
+```bash
+$PRJ_DIR/originals/data
+```
+
+You _must_ wait for all 64 jobs to finish (usually a few seconds) before continuing.
+
+Merge the generated shards:
+
+```bash
+$PRJ_DIR/scripts/merge_shards.sh
+```
+
+What each script does
+
+`shard_list.sh` 	: Splits the list of CSVs in originals/data into 64 separate lists.
+
+`split_csv.slurm` 	: For each list, it:
+
+```
+1.	tars the CSVs,					
+2.	processes them using awk to convert key-value format into a wide table,
+3.	writes out 64 CSV shards.
+```
+
+`merge_shards.sh` 	: Appends all 64 shards into a single file:
+
+```
+$PRJ_DIR/outputs/merged_all.csv
+```
+
+### Cleaning
+
+Run:
+
+```
+$PRJ_DIR/scripts/run_cleaning.sh --input_dir=$PRJ_DIR --output_dir=$PRJ_DIR/outputs
+```
+
+This will run `cleaning.R` and `grouping_phenotypes.R`, which:
+
+ 1. Loads the metadata (parameter descriptions, procedure definitons, Disease Ontology mappings, and SOP constraints)
+
+ 2. Cleans and standardizes duplicates, missing values, and coerces booleans.
+
+ 3. Validates against the SOP:
+    Each filed is checked against the IMPC SOP rules for range, type, and acceptable string-length
+    Any invalid rows are removed and logged
+ 
+ 4. Applies fuzzy correction of catergorical fields
+
+ 5. Generates cleaned metadata tables
+    
+```
+    clean_data.csv
+    clean_disease_info.csv
+    clean_params.csv
+    clean_procedure.csv
+```
+ 
+ 7. Exports cleaned dataset
+
+```
+ clean_data.csv
+```
+ 
+ 9. Generates QC reports
+
+ 10. Creates the phenotype groupings.
+    
 
 ## Folder structure
 
@@ -34,63 +124,6 @@ sql/examples/          		# Query examples for collaborators
 ```
 
 The pipeline will not run correctly unless these directories exist in this layout.
-
-## How to execute the pipeline 
-
-The full data-cleaning workflow is carried out through the **cleaning.R** in the scripts/ directory which takes two arguments:
-
-  • --input_dir: The directory containg the raw files and metadata
-  • --ouput_dir: The directory where cleaned data, logs and QC reports will be written
-
-What the script does
-
-The **cleaning.R** script performs the following:
-
- 1. Loads the metadata:
-    • Parameter descriptions, procedure definitons, Disease Ontology mappings, and SOP constraints
-
- 2. Cleaning and standardisatgion of the dataset:
-    • Removal of duplicates
-    • Standardised missing values such as "na", "N/A", and "NULL"
-    • Case normalisation
-    • Coercion of boolean values
-
- 3. SOP validation:
-    Each filed is checked against the IMPC SOP rules for range, type, and acceptable string-length
-    Any invalid rows are removed and logged
- 
- 4. Fuzzy correction of catergorical fields
-
- 5. Generated cleaned metadata tables
-    • clean_data.csv
-    • clean_disease_info.csv
-    • clean_params.csv
-    • clean_procedure.csv
- 
- 6. Exporting cleaned dataset
-    clean_data.csv  is exported to outputs/
- 
- 7. Generating QC reports
-    QC logs for SOP violations and corrected strains are exported to:
-    • qc_sop_data.csv
-    • qc_mouse_strain.csv
-    • qc_sop_orthogonal.csv
-
-## Outputs files
-The following files will appear under outputs/:
-    
-	• clean_data.csv
-	• clean_params.csv
-	• clean_procedure.csv
-	• clean_disease_info.csv
-	• parameter_procedure.csv
-	• dim_procedure.csv
-	• disease.csv
-	• gene_disease.csv
-	• qc_mouse_strain.csv
-	• qc_sop_data.csv
-	• qc_sop_orthogonal.csv
-	• logs/cleaning_log.txt
 	
 	
 
