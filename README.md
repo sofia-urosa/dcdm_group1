@@ -16,6 +16,11 @@ renv::init()
 
 Assuming `$PRJ_DIR` is the project's root directory and that the folder structure matches the layout described in this repository:
 
+To set `$PRJ_DIR`, do:
+
+```bash
+PRJ_DIR=[your project directory]
+```
 ---
 
 ### Merging CSVs
