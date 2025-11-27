@@ -1,6 +1,8 @@
 # IMPC Data Cleaning and Data Management 
 ## 7BBG1003 Group 1
 
+![language](https://img.shields.io/badge/language-R-blue)
+
 This repository includes all code used for the data-cleaning pipeline, database design and RShiny dashboard architecture requested by collaborators of IMPC. 
 
 ## Installation
@@ -16,11 +18,21 @@ renv::init()
 
 Assuming `$PRJ_DIR` is the project's root directory and that the folder structure matches the layout described in this repository:
 
+![important](https://img.shields.io/badge/IMPORTANT-Do_this_first-red)
+
 To set `$PRJ_DIR`, do:
 
 ```bash
 PRJ_DIR=[your project directory]
 ```
+If you run:
+
+```bash
+echo $PRJ_DIR
+```
+
+In your terminal, you *SHOULD* see your project directory. 
+
 ---
 
 ### Merging CSVs
